@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const advancedPanel = document.getElementById('advanced-panel');
   const advancedArrow = document.getElementById('advanced-arrow');
   const testAlertBtn = document.getElementById('test-alert-btn');
+  const testMorphoBtn = document.getElementById('test-morpho-btn');
   
   const tokenInput = document.getElementById('telegramBotToken');
   const toggleTokenBtn = document.getElementById('toggle-token-btn');
@@ -17,7 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
     rpcUrl: 'https://rpc.plasma.to',
     assetAddress: '0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb',
     poolAddress: '0x925a2A7214Ed92428B5b1B090F80b25700095e12',
-    dataProviderAddress: '0xf2D6E38B407e31E7E7e4a16E6769728b76c7419F'
+    dataProviderAddress: '0xf2D6E38B407e31E7E7e4a16E6769728b76c7419F',
+    
+    // Morpho Defaults
+    morphoApyThreshold: 4.0,
+    morphoVaultAddress: '0xBEEFE94c8aD530842bfE7d8B397938fFc1cb83b2',
+    morphoChainId: 8453
   };
 
   // State
@@ -82,6 +88,11 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('assetAddress').value = settings.assetAddress;
       document.getElementById('poolAddress').value = settings.poolAddress;
       document.getElementById('dataProviderAddress').value = settings.dataProviderAddress;
+
+      // Morpho settings loading
+      document.getElementById('morphoApyThreshold').value = settings.morphoApyThreshold;
+      document.getElementById('morphoVaultAddress').value = settings.morphoVaultAddress;
+      document.getElementById('morphoChainId').value = settings.morphoChainId;
       
       console.log("Settings loaded from localStorage successfully.");
     } catch (err) {
@@ -96,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const updated = {};
     
     formData.forEach((val, key) => {
-      if (key === 'utilizationThreshold' || key === 'checkIntervalMinutes') {
+      if (key === 'utilizationThreshold' || key === 'checkIntervalMinutes' || key === 'morphoApyThreshold' || key === 'morphoChainId') {
         updated[key] = parseFloat(val);
       } else {
         updated[key] = val;
@@ -109,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('Settings saved in browser cache!');
       
       // Refresh dashboard metrics immediately using the new parameters
-      refreshAaveMetrics();
+      refreshAllMetrics();
     } catch (err) {
       showToast('Failed to save settings: ' + err.message, 'error');
     }
@@ -191,6 +202,56 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  // Query Morpho Vault V2 from Morpho GraphQL API
+  async function fetchMorphoData() {
+    const query = `
+    {
+      vaultByAddress(address: "${settings.morphoVaultAddress.toLowerCase()}", chainId: ${parseInt(settings.morphoChainId)}) {
+        address
+        name
+        symbol
+        asset {
+          decimals
+        }
+        state {
+          totalAssets
+          apy
+          fee
+        }
+      }
+    }
+    `;
+
+    const res = await fetch("https://api.morpho.org/graphql", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query })
+    });
+
+    const payload = await res.json();
+    if (payload.errors) {
+      throw new Error(payload.errors[0].message);
+    }
+
+    const vault = payload.data.vaultByAddress;
+    if (!vault) {
+      throw new Error(`Vault not found`);
+    }
+
+    const decimals = vault.asset.decimals;
+    const totalAssets = Number(vault.state.totalAssets) / Math.pow(10, decimals);
+    const netApy = vault.state.apy * 100;
+    const fee = vault.state.fee * 100;
+
+    return {
+      name: vault.name,
+      symbol: vault.symbol,
+      totalAssets,
+      netApy,
+      fee
+    };
+  }
+
   // Format helper to Millions
   function formatM(val) {
     if (val === undefined || val === null || isNaN(val)) return '--M';
@@ -204,49 +265,83 @@ document.addEventListener('DOMContentLoaded', () => {
     return formatM(val);
   }
 
-  // Render on-chain data to Dashboard Cards
-  async function refreshAaveMetrics() {
+  // Update Aave and Morpho UI metrics in parallel
+  async function refreshAllMetrics() {
     const lblStatus = document.getElementById('lbl-status');
     const statusIndicator = document.getElementById('status-indicator');
 
+    lblStatus.textContent = 'Updating...';
+    lblStatus.style.color = 'var(--text-secondary)';
+
+    let aaveError = null;
+    let morphoError = null;
+
+    // 1. Fetch & Render Aave
     try {
       const data = await fetchAaveData();
-      
-      // Update APY and Utilization cards
       document.getElementById('val-net-apy').textContent = data.netApy.toFixed(2) + '%';
       document.getElementById('val-utilization').textContent = data.utilization.toFixed(2) + '%';
 
-      // Update progress bar
       const fill = document.getElementById('util-bar');
       fill.style.width = Math.min(100, data.utilization) + '%';
-      if (data.utilization >= settings.utilizationThreshold) {
-        fill.className = 'progress-bar-fill warning';
-      } else {
-        fill.className = 'progress-bar-fill';
-      }
+      fill.className = data.utilization >= settings.utilizationThreshold ? 'progress-bar-fill warning' : 'progress-bar-fill';
 
-      // Update Supply and Borrow details
       document.getElementById('val-total-supply').textContent = `${formatM(data.totalSupply)} of ${formatCap(data.supplyCap)}`;
       document.getElementById('val-total-borrow').textContent = `${formatM(data.totalBorrow)} of ${formatCap(data.borrowCap)}`;
-
-      // Update bottom statuses
-      lblStatus.textContent = 'Active (Connected to Chain)';
-      lblStatus.style.color = 'var(--accent-green)';
-      statusIndicator.className = 'status-dot'; // Green glow
-      
-      lastUpdateTime = new Date();
-      document.getElementById('lbl-last-check').textContent = lastUpdateTime.toLocaleTimeString();
-      document.getElementById('lbl-next-check').textContent = 'Live Query';
-      
     } catch (err) {
-      console.error(err);
-      lblStatus.textContent = 'RPC Error: ' + err.message;
+      console.error("Aave error:", err);
+      aaveError = err.message;
+    }
+
+    // 2. Fetch & Render Morpho
+    try {
+      const data = await fetchMorphoData();
+      document.getElementById('morpho-net-apy').textContent = data.netApy.toFixed(2) + '%';
+      document.getElementById('morpho-total-assets').textContent = formatM(data.totalAssets);
+      document.getElementById('morpho-fee').textContent = data.fee.toFixed(1) + '%';
+    } catch (err) {
+      console.error("Morpho error:", err);
+      morphoError = err.message;
+    }
+
+    // 3. Update Status indicators
+    if (!aaveError && !morphoError) {
+      lblStatus.textContent = 'Active (Connected to both chains)';
+      lblStatus.style.color = 'var(--accent-green)';
+      statusIndicator.className = 'status-dot';
+    } else {
+      let errStr = [];
+      if (aaveError) errStr.push(`Aave: ${aaveError}`);
+      if (morphoError) errStr.push(`Morpho: ${morphoError}`);
+      
+      lblStatus.textContent = 'Error - ' + errStr.join(' | ');
       lblStatus.style.color = 'var(--accent-red)';
-      statusIndicator.className = 'status-dot error'; // Red glow
+      statusIndicator.className = 'status-dot error';
+    }
+
+    lastUpdateTime = new Date();
+    document.getElementById('lbl-last-check').textContent = lastUpdateTime.toLocaleTimeString();
+  }
+
+  // Telegram test dispatcher helper
+  async function dispatchTelegramTest(token, chatId, message) {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        parse_mode: 'Markdown'
+      })
+    });
+    
+    const payload = await res.json();
+    if (!payload.ok) {
+      throw new Error(payload.description);
     }
   }
 
-  // Direct client-to-Telegram Alert sender for test notifications
+  // Aave Test Trigger
   testAlertBtn.addEventListener('click', async () => {
     const token = document.getElementById('telegramBotToken').value;
     const chatId = document.getElementById('telegramChatId').value;
@@ -261,39 +356,16 @@ document.addEventListener('DOMContentLoaded', () => {
     testAlertBtn.innerHTML = 'Sending...';
 
     try {
-      // 1. Fetch live metrics
       const data = await fetchAaveData();
-
-      // 2. Build message payload
-      const netApyStr = data.netApy.toFixed(2) + '%';
-      const utilizationStr = data.utilization.toFixed(2) + '%';
-      const supplyStr = `${formatM(data.totalSupply)} of ${formatCap(data.supplyCap)}`;
-      const borrowStr = `${formatM(data.totalBorrow)} of ${formatCap(data.borrowCap)}`;
-
       const message = `🔔 *[TEST MESSAGE]* Aave Plasma Pool Alert\n` + 
                       `Asset: *USDT0*\n\n` +
-                      `• *Net APY:* ${netApyStr}\n` +
-                      `• *Utilization:* ${utilizationStr}\n` +
-                      `• *Total Supply:* ${supplyStr}\n` +
-                      `• *Total Borrow:* ${borrowStr}`;
+                      `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
+                      `• *Utilization:* ${data.utilization.toFixed(2)}%\n` +
+                      `• *Total Supply:* ${formatM(data.totalSupply)} of ${formatCap(data.supplyCap)}\n` +
+                      `• *Total Borrow:* ${formatM(data.totalBorrow)} of ${formatCap(data.borrowCap)}`;
 
-      // 3. Send via Telegram Bot API
-      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: message,
-          parse_mode: 'Markdown'
-        })
-      });
-      
-      const payload = await res.json();
-      if (!payload.ok) {
-        throw new Error(payload.description);
-      }
-      showToast('Test notification sent to Telegram successfully!');
-      
+      await dispatchTelegramTest(token, chatId, message);
+      showToast('Test alert sent to Telegram successfully!');
       document.getElementById('lbl-last-alert').textContent = new Date().toLocaleTimeString();
     } catch (err) {
       showToast('Test alert failed: ' + err.message, 'error');
@@ -303,13 +375,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Setup GitHub Setup Information
-  document.getElementById('lbl-next-check').textContent = 'Every 40m (Actions)';
-  
+  // Morpho Test Trigger
+  testMorphoBtn.addEventListener('click', async () => {
+    const token = document.getElementById('telegramBotToken').value;
+    const chatId = document.getElementById('telegramChatId').value;
+    
+    if (!token || !chatId) {
+      showToast('Please fill out the Telegram Bot Token and Chat ID to run a test.', 'error');
+      return;
+    }
+
+    testMorphoBtn.disabled = true;
+    const originalText = testMorphoBtn.innerHTML;
+    testMorphoBtn.innerHTML = 'Sending...';
+
+    try {
+      const data = await fetchMorphoData();
+      const message = `🔔 *[TEST MESSAGE]* Morpho Base Vault Status\n` + 
+                      `Vault: *${data.name}*\n\n` +
+                      `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
+                      `• *Total Supplied:* ${formatM(data.totalAssets)}`;
+
+      await dispatchTelegramTest(token, chatId, message);
+      showToast('Test alert sent to Telegram successfully!');
+      document.getElementById('lbl-last-alert').textContent = new Date().toLocaleTimeString();
+    } catch (err) {
+      showToast('Test alert failed: ' + err.message, 'error');
+    } finally {
+      testMorphoBtn.disabled = false;
+      testMorphoBtn.innerHTML = originalText;
+    }
+  });
+
   // Initial load
   loadConfig();
-  refreshAaveMetrics();
+  refreshAllMetrics();
 
-  // Periodically refresh browser metrics every 10 seconds
-  setInterval(refreshAaveMetrics, 10000);
+  // Refresh every 10 seconds
+  setInterval(refreshAllMetrics, 10000);
 });

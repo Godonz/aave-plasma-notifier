@@ -7,6 +7,7 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const UTILIZATION_THRESHOLD = parseFloat(process.env.UTILIZATION_THRESHOLD || '94.0');
 const RPC_URL = process.env.RPC_URL || 'https://rpc.plasma.to';
+const SEND_ALWAYS = process.env.SEND_ALWAYS === 'true';
 
 const ASSET_ADDRESS = process.env.ASSET_ADDRESS || '0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb';
 const POOL_ADDRESS = process.env.POOL_ADDRESS || '0x925a2A7214Ed92428B5b1B090F80b25700095e12';
@@ -117,7 +118,9 @@ async function sendTelegramAlert(data) {
   const supplyStr = `${formatMillions(data.totalSupply)} of ${formatCap(data.supplyCap)}`;
   const borrowStr = `${formatMillions(data.totalBorrow)} of ${formatCap(data.borrowCap)}`;
 
-  const message = `🚨 *[UTILIZATION ALERT]* Aave Plasma Pool Alert\n` + 
+  const prefix = SEND_ALWAYS ? "ℹ️ *[DAILY STATUS]* Aave Plasma Pool Status" : "🚨 *[UTILIZATION ALERT]* Aave Plasma Pool Alert";
+
+  const message = `${prefix}\n` + 
                   `Asset: *USDT0*\n\n` +
                   `• *Net APY:* ${netApyStr}\n` +
                   `• *Utilization:* ${utilizationStr}\n` +
@@ -153,8 +156,8 @@ async function run() {
     console.log(`Total Supply: ${formatMillions(data.totalSupply)} / ${formatCap(data.supplyCap)}`);
     console.log(`Total Borrow: ${formatMillions(data.totalBorrow)} / ${formatCap(data.borrowCap)}`);
 
-    if (data.utilization >= UTILIZATION_THRESHOLD) {
-      console.log("Utilization threshold breached! Triggering Telegram notification...");
+    if (data.utilization >= UTILIZATION_THRESHOLD || SEND_ALWAYS) {
+      console.log("Triggering Telegram notification...");
       await sendTelegramAlert(data);
     } else {
       console.log("Utilization within safe limits. No action needed.");

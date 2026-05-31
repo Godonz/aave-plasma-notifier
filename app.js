@@ -510,12 +510,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     `Vault APY: *${data.netApy.toFixed(2)}%*\n\n`;
 
       if (primaryAlloc) {
-        message += `📍 *Largest Allocation Market (${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}):*\n` +
-                   `• *Net APY:* ${primaryAlloc.marketSupplyApy.toFixed(2)}%\n` +
-                   `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (🔥 BREACHED)' : ''}\n` +
-                   `• *Total Supply:* ${formatM(primaryAlloc.marketSupply)}\n` +
-                   `• *Total Borrow:* ${formatM(primaryAlloc.marketBorrow)}\n` +
-                   `• *Vault Allocation:* ${formatM(primaryAlloc.supplyAssets)}`;
+        message += `📍 *Largest Allocation Market:* ${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}\n` +
+                   `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (🔥 BREACHED)' : ''}`;
       } else {
         message += `⚠️ No active allocation markets found.`;
       }

@@ -142,12 +142,8 @@ async function sendTelegramAlert(data, primaryAlloc, isBreached) {
                 `Vault Net APY: *${data.vaultApy.toFixed(2)}%*\n\n`;
 
   if (primaryAlloc) {
-    message += `📍 *Largest Allocation Market (${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}):*\n` +
-               `• *Net APY:* ${primaryAlloc.marketSupplyApy.toFixed(2)}%\n` +
-               `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (🔥 BREACHED)' : ''}\n` +
-               `• *Total Supply:* ${formatMillions(primaryAlloc.marketSupply)}\n` +
-               `• *Total Borrow:* ${formatMillions(primaryAlloc.marketBorrow)}\n` +
-               `• *Vault Allocation:* ${formatMillions(primaryAlloc.supplyAssets)}`;
+    message += `📍 *Largest Allocation Market:* ${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}\n` +
+               `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (🔥 BREACHED)' : ''}`;
   } else {
     message += `⚠️ No active allocation markets found.`;
   }

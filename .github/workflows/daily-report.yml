@@ -1,0 +1,33 @@
+# .github/workflows/daily-report.yml
+name: Aave Daily Status Report
+
+on:
+  schedule:
+    # 7:00 AM Thailand Time (UTC+7) is 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  daily-report:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Run Daily Report
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        UTILIZATION_THRESHOLD: ${{ vars.UTILIZATION_THRESHOLD }}
+        RPC_URL: ${{ vars.RPC_URL }}
+        ASSET_ADDRESS: ${{ vars.ASSET_ADDRESS }}
+        POOL_ADDRESS: ${{ vars.POOL_ADDRESS }}
+        DATA_PROVIDER_ADDRESS: ${{ vars.DATA_PROVIDER_ADDRESS }}
+        SEND_ALWAYS: 'true' # บังคับส่งข้อความอัปเดตตลอดโดยไม่สนเกณฑ์เปอร์เซ็นต์
+      run: node check.js

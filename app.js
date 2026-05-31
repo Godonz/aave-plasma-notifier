@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dataProviderAddress: '0xf2D6E38B407e31E7E7e4a16E6769728b76c7419F',
     
     // Morpho Defaults
-    morphoApyThreshold: 4.0,
+    morphoUtilizationThreshold: 94.0,
     morphoVaultAddress: '0xBEEFE94c8aD530842bfE7d8B397938fFc1cb83b2',
     morphoChainId: 8453
   };
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('dataProviderAddress').value = settings.dataProviderAddress;
 
       // Morpho settings loading
-      document.getElementById('morphoApyThreshold').value = settings.morphoApyThreshold;
+      document.getElementById('morphoUtilizationThreshold').value = settings.morphoUtilizationThreshold;
       document.getElementById('morphoVaultAddress').value = settings.morphoVaultAddress;
       document.getElementById('morphoChainId').value = settings.morphoChainId;
       
@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const updated = {};
     
     formData.forEach((val, key) => {
-      if (key === 'utilizationThreshold' || key === 'checkIntervalMinutes' || key === 'morphoApyThreshold' || key === 'morphoChainId') {
+      if (key === 'utilizationThreshold' || key === 'checkIntervalMinutes' || key === 'morphoUtilizationThreshold' || key === 'morphoChainId') {
         updated[key] = parseFloat(val);
       } else {
         updated[key] = val;
@@ -202,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // Query Morpho Vault V2 from Morpho GraphQL API
+  // Query Morpho Vault allocations from Morpho GraphQL API
   async function fetchMorphoData() {
     const query = `
     {
@@ -217,6 +217,26 @@ document.addEventListener('DOMContentLoaded', () => {
           totalAssets
           apy
           fee
+          allocation {
+            supplyAssets
+            supplyCap
+            market {
+              lltv
+              collateralAsset {
+                symbol
+              }
+              loanAsset {
+                symbol
+                decimals
+              }
+              state {
+                supplyAssets
+                borrowAssets
+                utilization
+                supplyApy
+              }
+            }
+          }
         }
       }
     }
@@ -243,12 +263,56 @@ document.addEventListener('DOMContentLoaded', () => {
     const netApy = vault.state.apy * 100;
     const fee = vault.state.fee * 100;
 
+    const allocations = [];
+    if (vault.state.allocation) {
+      for (const alloc of vault.state.allocation) {
+        const supplyAssets = Number(alloc.supplyAssets) / Math.pow(10, decimals);
+        const supplyCap = Number(alloc.supplyCap) / Math.pow(10, decimals);
+        
+        if (supplyAssets === 0 && (!alloc.market || !alloc.market.collateralAsset)) {
+          continue;
+        }
+
+        const collateralSymbol = alloc.market && alloc.market.collateralAsset 
+          ? alloc.market.collateralAsset.symbol 
+          : 'USDC (Idle)';
+        
+        const loanSymbol = alloc.market && alloc.market.loanAsset ? alloc.market.loanAsset.symbol : 'USDC';
+        const marketDecimals = alloc.market && alloc.market.loanAsset ? alloc.market.loanAsset.decimals : decimals;
+
+        let marketSupply = 0;
+        let marketBorrow = 0;
+        let marketUtilization = 0;
+        let marketSupplyApy = 0;
+
+        if (alloc.market && alloc.market.state) {
+          const div = Math.pow(10, marketDecimals);
+          marketSupply = Number(alloc.market.state.supplyAssets) / div;
+          marketBorrow = Number(alloc.market.state.borrowAssets) / div;
+          marketUtilization = (alloc.market.state.utilization || 0) * 100;
+          marketSupplyApy = (alloc.market.state.supplyApy || 0) * 100;
+        }
+
+        allocations.push({
+          collateralSymbol,
+          loanSymbol,
+          supplyAssets,
+          supplyCap,
+          marketSupply,
+          marketBorrow,
+          marketUtilization,
+          marketSupplyApy
+        });
+      }
+    }
+
     return {
       name: vault.name,
       symbol: vault.symbol,
       totalAssets,
       netApy,
-      fee
+      fee,
+      allocations
     };
   }
 
@@ -298,10 +362,46 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await fetchMorphoData();
       document.getElementById('morpho-net-apy').textContent = data.netApy.toFixed(2) + '%';
       document.getElementById('morpho-total-assets').textContent = formatM(data.totalAssets);
-      document.getElementById('morpho-fee').textContent = data.fee.toFixed(1) + '%';
+      
+      const listContainer = document.getElementById('morpho-allocations-list');
+      listContainer.innerHTML = ''; // Clear loading
+      
+      if (data.allocations.length === 0) {
+        listContainer.innerHTML = '<div class="alloc-empty">No active allocations</div>';
+      } else {
+        data.allocations.forEach(alloc => {
+          const isBreached = alloc.collateralSymbol !== 'USDC (Idle)' && alloc.marketUtilization >= settings.morphoUtilizationThreshold;
+          
+          const item = document.createElement('div');
+          item.className = isBreached ? 'allocation-row error' : 'allocation-row';
+          
+          // Display Name and Allocation size
+          const label = document.createElement('div');
+          label.className = 'allocation-label';
+          label.innerHTML = `<strong>${alloc.collateralSymbol}</strong> <span class="alloc-size">(${formatM(alloc.supplyAssets)})</span>`;
+          
+          // Display Details in exact order: APY, Utilization, Supply, Borrow
+          const details = document.createElement('div');
+          details.className = 'allocation-details';
+          
+          const badgeClass = isBreached ? 'util-badge high' : 'util-badge';
+          
+          details.innerHTML = `
+            <span>APY: ${alloc.marketSupplyApy.toFixed(2)}%</span>
+            <span class="${badgeClass}">Util: ${alloc.marketUtilization.toFixed(1)}%</span>
+            <span>Supply: ${formatM(alloc.marketSupply)}</span>
+            <span>Borrow: ${formatM(alloc.marketBorrow)}</span>
+          `;
+          
+          item.appendChild(label);
+          item.appendChild(details);
+          listContainer.appendChild(item);
+        });
+      }
     } catch (err) {
       console.error("Morpho error:", err);
       morphoError = err.message;
+      document.getElementById('morpho-allocations-list').innerHTML = `<div class="alloc-error">Error: ${err.message}</div>`;
     }
 
     // 3. Update Status indicators
@@ -391,10 +491,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const data = await fetchMorphoData();
-      const message = `🔔 *[TEST MESSAGE]* Morpho Base Vault Status\n` + 
-                      `Vault: *${data.name}*\n\n` +
-                      `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
-                      `• *Total Supplied:* ${formatM(data.totalAssets)}`;
+      
+      const threshold = parseFloat(document.getElementById('morphoUtilizationThreshold').value || '94.0');
+      
+      const breached = data.allocations.filter(m => m.collateralSymbol !== 'USDC (Idle)' && m.marketUtilization >= threshold);
+
+      let message = `🔔 *[TEST MESSAGE]* Morpho Base Vault Status\n` + 
+                    `Vault: *${data.name} (${data.symbol})*\n` +
+                    `Total Assets: *${formatM(data.totalAssets)}*\n` +
+                    `Vault APY: *${data.netApy.toFixed(2)}%*\n\n`;
+
+      if (breached.length > 0) {
+        message += `🚨 *Markets Exceeding Threshold (${threshold.toFixed(1)}%):*\n`;
+        breached.forEach(m => {
+          message += `• *${m.collateralSymbol} / ${m.loanSymbol}:* APY: ${m.marketSupplyApy.toFixed(2)}% | Util: *${m.marketUtilization.toFixed(1)}%* (🔥 BREACHED) | Supply: ${formatM(m.marketSupply)} | Borrow: ${formatM(m.marketBorrow)}\n`;
+        });
+        message += `\n*All Allocations:*\n`;
+      } else {
+        message += `*Allocations Details:*\n`;
+      }
+
+      data.allocations.forEach(m => {
+        message += `• *${m.collateralSymbol} / ${m.loanSymbol}* (Alloc: ${formatM(m.supplyAssets)}):\n` +
+                   `  - *Net APY:* ${m.marketSupplyApy.toFixed(2)}%\n` +
+                   `  - *Utilization:* ${m.marketUtilization.toFixed(1)}%\n` +
+                   `  - *Total Supply:* ${formatM(m.marketSupply)}\n` +
+                   `  - *Total Borrow:* ${formatM(m.marketBorrow)}\n`;
+      });
 
       await dispatchTelegramTest(token, chatId, message);
       showToast('Test alert sent to Telegram successfully!');

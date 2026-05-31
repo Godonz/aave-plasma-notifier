@@ -72,22 +72,25 @@
         </h2>
         
         <div class="dashboard-grid" style="grid-template-columns: 1fr;">
-          <div class="metric-card apy">
-            <span class="metric-label">Vault Net APY</span>
-            <span class="metric-value" id="morpho-net-apy">--%</span>
-            <span class="metric-sub">Lending Yield on Base</span>
-          </div>
-          
-          <div class="metric-card supply">
-            <span class="metric-label">Total Assets (AUM)</span>
-            <span class="metric-value" id="morpho-total-assets">--M</span>
-            <span class="metric-sub">Deposited Liquidity (USDC)</span>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="metric-card apy">
+              <span class="metric-label">Vault Net APY</span>
+              <span class="metric-value" id="morpho-net-apy">--%</span>
+              <span class="metric-sub">Lending Yield on Base</span>
+            </div>
+            
+            <div class="metric-card supply">
+              <span class="metric-label">Total Assets (AUM)</span>
+              <span class="metric-value" id="morpho-total-assets">--M</span>
+              <span class="metric-sub">Deposited Liquidity (USDC)</span>
+            </div>
           </div>
 
-          <div class="metric-card util">
-            <span class="metric-label">Vault Performance Fee</span>
-            <span class="metric-value" id="morpho-fee">0%</span>
-            <span class="metric-sub">Fee kept by curator</span>
+          <div class="metric-card allocations-card">
+            <span class="metric-label">Underlying Allocations & Utilization</span>
+            <div id="morpho-allocations-list" class="allocations-list">
+              <div class="alloc-loading">Loading allocations...</div>
+            </div>
           </div>
         </div>
       </section>
@@ -131,10 +134,10 @@
             <input type="number" id="utilizationThreshold" name="utilizationThreshold" step="0.1" min="0" max="100" placeholder="94.0" required>
           </div>
 
-          <!-- Morpho APY Threshold -->
+          <!-- Morpho Utilization Threshold -->
           <div class="form-group">
-            <label for="morphoApyThreshold">Morpho APY Warning Threshold (%)</label>
-            <input type="number" id="morphoApyThreshold" name="morphoApyThreshold" step="0.1" min="0" max="100" placeholder="4.0" required>
+            <label for="morphoUtilizationThreshold">Morpho Utilization Alert Threshold (%)</label>
+            <input type="number" id="morphoUtilizationThreshold" name="morphoUtilizationThreshold" step="0.1" min="0" max="100" placeholder="94.0" required>
           </div>
         </div>
 

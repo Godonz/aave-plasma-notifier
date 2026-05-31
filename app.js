@@ -350,8 +350,8 @@ document.addEventListener('DOMContentLoaded', () => {
       fill.style.width = Math.min(100, data.utilization) + '%';
       fill.className = data.utilization >= settings.utilizationThreshold ? 'progress-bar-fill warning' : 'progress-bar-fill';
 
-      document.getElementById('val-total-supply').textContent = `${formatM(data.totalSupply)} of ${formatCap(data.supplyCap)}`;
-      document.getElementById('val-total-borrow').textContent = `${formatM(data.totalBorrow)} of ${formatCap(data.borrowCap)}`;
+      document.getElementById('val-total-supply').textContent = formatM(data.totalSupply);
+      document.getElementById('val-total-borrow').textContent = formatM(data.totalBorrow);
     } catch (err) {
       console.error("Aave error:", err);
       aaveError = err.message;
@@ -461,8 +461,8 @@ document.addEventListener('DOMContentLoaded', () => {
                       `Asset: *USDT0*\n\n` +
                       `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
                       `• *Utilization:* ${data.utilization.toFixed(2)}%\n` +
-                      `• *Total Supply:* ${formatM(data.totalSupply)} of ${formatCap(data.supplyCap)}\n` +
-                      `• *Total Borrow:* ${formatM(data.totalBorrow)} of ${formatCap(data.borrowCap)}`;
+                      `• *Total Supply:* ${formatM(data.totalSupply)}\n` +
+                      `• *Total Borrow:* ${formatM(data.totalBorrow)}`;
 
       await dispatchTelegramTest(token, chatId, message);
       showToast('Test alert sent to Telegram successfully!');

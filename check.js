@@ -115,8 +115,8 @@ async function sendTelegramAlert(data) {
 
   const netApyStr = data.netApy.toFixed(2) + '%';
   const utilizationStr = data.utilization.toFixed(2) + '%';
-  const supplyStr = `${formatMillions(data.totalSupply)} of ${formatCap(data.supplyCap)}`;
-  const borrowStr = `${formatMillions(data.totalBorrow)} of ${formatCap(data.borrowCap)}`;
+  const supplyStr = formatMillions(data.totalSupply);
+  const borrowStr = formatMillions(data.totalBorrow);
 
   const prefix = SEND_ALWAYS ? "ℹ️ *[DAILY STATUS]* Aave Plasma Pool Status" : "🚨 *[UTILIZATION ALERT]* Aave Plasma Pool Alert";
 

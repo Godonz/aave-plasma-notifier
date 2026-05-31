@@ -126,42 +126,30 @@ async function getVaultData() {
   };
 }
 
-async function sendTelegramAlert(data, breachedMarkets) {
+async function sendTelegramAlert(data, primaryAlloc, isBreached) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     console.warn("Skipping telegram notification: Token or Chat ID not configured.");
     return;
   }
 
-  const prefix = SEND_ALWAYS 
-    ? "ℹ️ *[DAILY STATUS]* Morpho Base Vault Status" 
-    : "🚨 *[UTILIZATION ALERT]* Morpho Base Vault Alert";
+  const prefix = isBreached 
+    ? "🚨 *[UTILIZATION ALERT]* Morpho Base Vault Alert" 
+    : "ℹ️ *[DAILY STATUS]* Morpho Base Vault Status";
 
   let message = `${prefix}\n` + 
                 `Vault: *${data.name} (${data.symbol})*\n` +
                 `Total Vault Assets: *${formatMillions(data.totalAssets)}*\n` +
                 `Vault Net APY: *${data.vaultApy.toFixed(2)}%*\n\n`;
 
-  if (breachedMarkets.length > 0) {
-    message += `⚠️ *Markets Exceeding Threshold (${UTILIZATION_THRESHOLD.toFixed(1)}%):*\n`;
-    for (const m of breachedMarkets) {
-      message += `• *${m.collateralSymbol} / ${m.loanSymbol} Market:*\n` +
-                 `  - *Net APY:* ${m.marketSupplyApy.toFixed(2)}%\n` +
-                 `  - *Utilization:* ${m.marketUtilization.toFixed(2)}% (🔥 BREACHED)\n` +
-                 `  - *Total Supply:* ${formatMillions(m.marketSupply)}\n` +
-                 `  - *Total Borrow:* ${formatMillions(m.marketBorrow)}\n` +
-                 `  - *Vault Allocation:* ${formatMillions(m.supplyAssets)}\n\n`;
-    }
-    message += `*All Vault Allocations:*\n`;
+  if (primaryAlloc) {
+    message += `📍 *Largest Allocation Market (${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}):*\n` +
+               `• *Net APY:* ${primaryAlloc.marketSupplyApy.toFixed(2)}%\n` +
+               `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (🔥 BREACHED)' : ''}\n` +
+               `• *Total Supply:* ${formatMillions(primaryAlloc.marketSupply)}\n` +
+               `• *Total Borrow:* ${formatMillions(primaryAlloc.marketBorrow)}\n` +
+               `• *Vault Allocation:* ${formatMillions(primaryAlloc.supplyAssets)}`;
   } else {
-    message += `*Vault Allocations Details:*\n`;
-  }
-
-  for (const m of data.allocations) {
-    message += `• *${m.collateralSymbol} / ${m.loanSymbol}* (Vault Alloc: ${formatMillions(m.supplyAssets)}):\n` +
-               `  - *Net APY:* ${m.marketSupplyApy.toFixed(2)}%\n` +
-               `  - *Utilization:* ${m.marketUtilization.toFixed(2)}%\n` +
-               `  - *Total Supply:* ${formatMillions(m.marketSupply)}\n` +
-               `  - *Total Borrow:* ${formatMillions(m.marketBorrow)}\n`;
+    message += `⚠️ No active allocation markets found.`;
   }
 
   console.log("Sending Telegram Message:\n", message);
@@ -192,24 +180,35 @@ async function run() {
     console.log(`Vault APY: ${data.vaultApy.toFixed(2)}%`);
     console.log("Allocations found:", data.allocations.length);
 
-    const breachedMarkets = [];
+    // Find the allocation with the largest supply assets (excluding idle USDC)
+    let primaryAlloc = null;
     for (const alloc of data.allocations) {
-      console.log(`- Market: ${alloc.collateralSymbol}/${alloc.loanSymbol} | Utilization: ${alloc.marketUtilization.toFixed(2)}% | Vault Allocation: ${formatMillions(alloc.supplyAssets)}`);
-      
-      // We only alert on actual markets with non-zero allocation and utilization exceeding the threshold
-      if (alloc.collateralSymbol !== 'USDC (Idle)' && alloc.marketUtilization >= UTILIZATION_THRESHOLD) {
-        breachedMarkets.push(alloc);
+      if (alloc.collateralSymbol === 'USDC (Idle)') continue;
+      if (!primaryAlloc || alloc.supplyAssets > primaryAlloc.supplyAssets) {
+        primaryAlloc = alloc;
       }
     }
 
-    if (breachedMarkets.length > 0) {
-      console.log(`Utilization threshold breached in ${breachedMarkets.length} market(s)!`);
-      await sendTelegramAlert(data, breachedMarkets);
-    } else if (SEND_ALWAYS) {
-      console.log("Sending forced daily status update...");
-      await sendTelegramAlert(data, []);
+    if (primaryAlloc) {
+      console.log(`Largest Allocated Market: ${primaryAlloc.collateralSymbol}/${primaryAlloc.loanSymbol}`);
+      console.log(`- Utilization: ${primaryAlloc.marketUtilization.toFixed(2)}% (Threshold: ${UTILIZATION_THRESHOLD.toFixed(2)}%)`);
+      console.log(`- Vault Allocation: ${formatMillions(primaryAlloc.supplyAssets)}`);
+
+      const isBreached = primaryAlloc.marketUtilization >= UTILIZATION_THRESHOLD;
+      if (isBreached) {
+        console.log("Utilization threshold breached in the primary market!");
+        await sendTelegramAlert(data, primaryAlloc, true);
+      } else if (SEND_ALWAYS) {
+        console.log("Sending forced daily status update...");
+        await sendTelegramAlert(data, primaryAlloc, false);
+      } else {
+        console.log("Primary market utilization is within safe limits. No action needed.");
+      }
     } else {
-      console.log("All market utilizations are within safe limits. No action needed.");
+      console.log("No active allocated markets found to monitor.");
+      if (SEND_ALWAYS) {
+        await sendTelegramAlert(data, null, false);
+      }
     }
   } catch (error) {
     console.error("Execution failed:", error);

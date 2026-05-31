@@ -494,30 +494,31 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const threshold = parseFloat(document.getElementById('morphoUtilizationThreshold').value || '94.0');
       
-      const breached = data.allocations.filter(m => m.collateralSymbol !== 'USDC (Idle)' && m.marketUtilization >= threshold);
+      let primaryAlloc = null;
+      data.allocations.forEach(alloc => {
+        if (alloc.collateralSymbol === 'USDC (Idle)') return;
+        if (!primaryAlloc || alloc.supplyAssets > primaryAlloc.supplyAssets) {
+          primaryAlloc = alloc;
+        }
+      });
+
+      const isBreached = primaryAlloc && primaryAlloc.marketUtilization >= threshold;
 
       let message = `🔔 *[TEST MESSAGE]* Morpho Base Vault Status\n` + 
                     `Vault: *${data.name} (${data.symbol})*\n` +
                     `Total Assets: *${formatM(data.totalAssets)}*\n` +
                     `Vault APY: *${data.netApy.toFixed(2)}%*\n\n`;
 
-      if (breached.length > 0) {
-        message += `🚨 *Markets Exceeding Threshold (${threshold.toFixed(1)}%):*\n`;
-        breached.forEach(m => {
-          message += `• *${m.collateralSymbol} / ${m.loanSymbol}:* APY: ${m.marketSupplyApy.toFixed(2)}% | Util: *${m.marketUtilization.toFixed(1)}%* (🔥 BREACHED) | Supply: ${formatM(m.marketSupply)} | Borrow: ${formatM(m.marketBorrow)}\n`;
-        });
-        message += `\n*All Allocations:*\n`;
+      if (primaryAlloc) {
+        message += `📍 *Largest Allocation Market (${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}):*\n` +
+                   `• *Net APY:* ${primaryAlloc.marketSupplyApy.toFixed(2)}%\n` +
+                   `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (🔥 BREACHED)' : ''}\n` +
+                   `• *Total Supply:* ${formatM(primaryAlloc.marketSupply)}\n` +
+                   `• *Total Borrow:* ${formatM(primaryAlloc.marketBorrow)}\n` +
+                   `• *Vault Allocation:* ${formatM(primaryAlloc.supplyAssets)}`;
       } else {
-        message += `*Allocations Details:*\n`;
+        message += `⚠️ No active allocation markets found.`;
       }
-
-      data.allocations.forEach(m => {
-        message += `• *${m.collateralSymbol} / ${m.loanSymbol}* (Alloc: ${formatM(m.supplyAssets)}):\n` +
-                   `  - *Net APY:* ${m.marketSupplyApy.toFixed(2)}%\n` +
-                   `  - *Utilization:* ${m.marketUtilization.toFixed(1)}%\n` +
-                   `  - *Total Supply:* ${formatM(m.marketSupply)}\n` +
-                   `  - *Total Borrow:* ${formatM(m.marketBorrow)}\n`;
-      });
 
       await dispatchTelegramTest(token, chatId, message);
       showToast('Test alert sent to Telegram successfully!');

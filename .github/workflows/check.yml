@@ -25,6 +25,7 @@ jobs:
 
     - name: Run Aave check
       env:
+        # Secure credentials loaded from GitHub Repository Secrets & Variables
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         UTILIZATION_THRESHOLD: ${{ vars.UTILIZATION_THRESHOLD }}

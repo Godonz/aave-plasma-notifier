@@ -1,5 +1,5 @@
-# .github/workflows/daily-report.yml
-name: Aave Daily Status Report
+# .github/workflows/daily-report-morpho.yml
+name: Morpho Daily Status Report
 
 on:
   schedule:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch: # Allows manual trigger from GitHub UI
 
 jobs:
-  daily-report:
+  daily-report-morpho:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,10 +24,8 @@ jobs:
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        UTILIZATION_THRESHOLD: ${{ vars.UTILIZATION_THRESHOLD }}
-        RPC_URL: ${{ vars.RPC_URL }}
-        ASSET_ADDRESS: ${{ vars.ASSET_ADDRESS }}
-        POOL_ADDRESS: ${{ vars.POOL_ADDRESS }}
-        DATA_PROVIDER_ADDRESS: ${{ vars.DATA_PROVIDER_ADDRESS }}
+        MORPHO_UTILIZATION_THRESHOLD: ${{ vars.MORPHO_UTILIZATION_THRESHOLD }}
+        MORPHO_VAULT_ADDRESS: ${{ vars.MORPHO_VAULT_ADDRESS }}
+        MORPHO_CHAIN_ID: ${{ vars.MORPHO_CHAIN_ID }}
         SEND_ALWAYS: 'true' # Force notification regardless of threshold
-      run: node check.js
+      run: node check-morpho.js

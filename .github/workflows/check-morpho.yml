@@ -1,0 +1,33 @@
+# .github/workflows/check-morpho.yml
+name: Morpho Vault APY Notifier
+
+on:
+  schedule:
+    # 40-minute intervals:
+    # 1. Even hours: minutes 0 and 40
+    - cron: '0,40 0,2,4,6,8,10,12,14,16,18,20,22 * * *'
+    # 2. Odd hours: minute 20
+    - cron: '20 1,3,5,7,9,11,13,15,17,19,21,23 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  check-morpho-apy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Run Morpho Check
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        MORPHO_UTILIZATION_THRESHOLD: ${{ vars.MORPHO_UTILIZATION_THRESHOLD }}
+        MORPHO_VAULT_ADDRESS: ${{ vars.MORPHO_VAULT_ADDRESS }}
+        MORPHO_CHAIN_ID: ${{ vars.MORPHO_CHAIN_ID }}
+      run: node check-morpho.js

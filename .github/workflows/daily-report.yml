@@ -3,8 +3,8 @@ name: Aave Daily Status Report
 
 on:
   schedule:
-    # 7:00 AM Thailand Time (UTC+7) is 00:00 UTC
-    - cron: '0 0 * * *'
+    # 8:15 AM Thailand Time (UTC+7) is 01:15 UTC (Off-peak schedule to avoid delays)
+    - cron: '15 1 * * *'
   workflow_dispatch: # Allows manual trigger from GitHub UI
 
 jobs:

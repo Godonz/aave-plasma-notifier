@@ -2,10 +2,7 @@
 name: Morpho Daily Status Report
 
 on:
-  schedule:
-    # 8:15 AM Thailand Time (UTC+7) is 01:15 UTC (Off-peak schedule to avoid delays)
-    - cron: '15 1 * * *'
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+  workflow_dispatch: # Allows manual trigger from GitHub UI / API
 
 jobs:
   daily-report-morpho:

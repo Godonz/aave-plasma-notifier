@@ -14,6 +14,30 @@ function formatMillions(value) {
   return (value / 1000000.0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'M';
 }
 
+async function fetchWithRetry(url, options, retries = 3, delayMs = 5000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+      }
+      
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const text = await response.text();
+        throw new Error(`Invalid response format (expected JSON, got: ${contentType}). Content preview: ${text.slice(0, 100)}`);
+      }
+
+      return await response.json();
+    } catch (err) {
+      console.warn(`Request failed (attempt ${i + 1}/${retries}): ${err.message}`);
+      if (i === retries - 1) throw err;
+      console.log(`Waiting ${delayMs / 1000}s before retrying...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+}
+
 async function getVaultData() {
   const query = `
   {
@@ -53,13 +77,12 @@ async function getVaultData() {
   `;
 
   console.log(`Querying Morpho API for vault allocations: ${VAULT_ADDRESS} on chain ${CHAIN_ID}...`);
-  const response = await fetch("https://api.morpho.org/graphql", {
+  const payload = await fetchWithRetry("https://api.morpho.org/graphql", {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query })
   });
 
-  const payload = await response.json();
   if (payload.errors) {
     throw new Error(`GraphQL Error: ${payload.errors[0].message}`);
   }

@@ -23,9 +23,33 @@ function formatCap(value) {
   return formatMillions(value);
 }
 
+async function fetchWithRetry(url, options, retries = 3, delayMs = 5000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+      }
+      
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const text = await response.text();
+        throw new Error(`Invalid response format (expected JSON, got: ${contentType}). Content preview: ${text.slice(0, 100)}`);
+      }
+
+      return await response.json();
+    } catch (err) {
+      console.warn(`Request failed (attempt ${i + 1}/${retries}): ${err.message}`);
+      if (i === retries - 1) throw err;
+      console.log(`Waiting ${delayMs / 1000}s before retrying...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+}
+
 // Perform direct JSON-RPC read call
 async function ethCall(to, data) {
-  const response = await fetch(RPC_URL, {
+  const payload = await fetchWithRetry(RPC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -36,7 +60,6 @@ async function ethCall(to, data) {
     })
   });
   
-  const payload = await response.json();
   if (payload.error) {
     throw new Error(`RPC execution reverted: ${payload.error.message}`);
   }

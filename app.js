@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Morpho Defaults
     morphoUtilizationThreshold: 94.0,
-    morphoVaultAddress: '0xBEEFE94c8aD530842bfE7d8B397938fFc1cb83b2',
+    morphoVaultAddress: '0xeE8F4eC5672F09119b96Ab6fB59C27E1b7e44b61',
     morphoChainId: 8453
   };
 

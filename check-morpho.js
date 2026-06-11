@@ -7,7 +7,7 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const UTILIZATION_THRESHOLD = parseFloat(process.env.MORPHO_UTILIZATION_THRESHOLD || '94.0');
 const SEND_ALWAYS = process.env.SEND_ALWAYS === 'true';
 
-const VAULT_ADDRESS = (process.env.MORPHO_VAULT_ADDRESS || '0xBEEFE94c8aD530842bfE7d8B397938fFc1cb83b2').toLowerCase();
+const VAULT_ADDRESS = (process.env.MORPHO_VAULT_ADDRESS || '0xeE8F4eC5672F09119b96Ab6fB59C27E1b7e44b61').toLowerCase();
 const CHAIN_ID = parseInt(process.env.MORPHO_CHAIN_ID || '8453');
 
 function formatMillions(value) {

@@ -567,9 +567,6 @@ body {
   flex-direction: column;
   gap: 0.8rem;
   margin-top: 0.25rem;
-  max-height: 250px;
-  overflow-y: auto;
-  padding-right: 0.2rem;
 }
 
 .allocation-row {
@@ -608,6 +605,21 @@ body {
   text-align: center;
   min-width: 68px;
   display: inline-block;
+}
+
+.market-link {
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease, transform 0.2s ease;
+  margin-left: 0.55rem;
+  vertical-align: middle;
+}
+
+.market-link:hover {
+  color: var(--accent-purple);
+  transform: translate(1px, -1px);
 }
 
 .token-badge.cbbtc {

@@ -346,9 +346,17 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('val-net-apy').textContent = data.netApy.toFixed(2) + '%';
       document.getElementById('val-utilization').textContent = data.utilization.toFixed(2) + '%';
 
-      const fill = document.getElementById('util-bar');
-      fill.style.width = Math.min(100, data.utilization) + '%';
-      fill.className = data.utilization >= settings.utilizationThreshold ? 'progress-bar-fill warning' : 'progress-bar-fill';
+      const gauge = document.getElementById('util-gauge');
+      const strokeDasharray = 238.76;
+      const offset = strokeDasharray - (strokeDasharray * Math.min(100, data.utilization) / 100);
+      if (gauge) {
+        gauge.style.strokeDashoffset = offset;
+        if (data.utilization >= settings.utilizationThreshold) {
+          gauge.classList.add('warning');
+        } else {
+          gauge.classList.remove('warning');
+        }
+      }
 
       document.getElementById('val-total-supply').textContent = formatM(data.totalSupply);
       document.getElementById('val-total-borrow').textContent = formatM(data.totalBorrow);
@@ -378,7 +386,8 @@ document.addEventListener('DOMContentLoaded', () => {
           // Display Name and Allocation size
           const label = document.createElement('div');
           label.className = 'allocation-label';
-          label.innerHTML = `<strong>${alloc.collateralSymbol}</strong> <span class="alloc-size">(${formatM(alloc.supplyAssets)})</span>`;
+          const symbolClass = alloc.collateralSymbol.toLowerCase().replace(/[^a-z0-9]/g, '');
+          label.innerHTML = `<span class="token-badge ${symbolClass}">${alloc.collateralSymbol}</span> <span class="alloc-size">${formatM(alloc.supplyAssets)}</span>`;
           
           // Display Details in exact order: APY, Utilization, Supply, Borrow
           const details = document.createElement('div');

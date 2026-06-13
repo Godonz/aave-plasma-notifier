@@ -403,10 +403,38 @@ body {
 .panel-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: space-between;
   margin-bottom: 1.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   padding-bottom: 1rem;
+}
+
+.panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.panel-header-link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: all 0.2s ease;
+}
+
+.panel-header-link:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.03);
 }
 
 .panel-header h2 {
@@ -589,6 +617,25 @@ body {
   background: rgba(255, 77, 79, 0.035);
   border-color: rgba(255, 77, 79, 0.15);
   box-shadow: 0 0 10px rgba(255, 77, 79, 0.02);
+}
+
+.allocation-row.largest {
+  background: rgba(189, 83, 247, 0.045);
+  border-color: rgba(189, 83, 247, 0.35);
+  box-shadow: 0 0 15px rgba(189, 83, 247, 0.08);
+  padding: 1.1rem 1.25rem;
+}
+
+.allocation-row.largest:hover {
+  background: rgba(189, 83, 247, 0.08);
+  border-color: rgba(189, 83, 247, 0.5);
+  box-shadow: 0 0 20px rgba(189, 83, 247, 0.15);
+}
+
+.allocation-row.largest .alloc-size {
+  font-size: 1.05rem;
+  color: var(--accent-purple);
+  text-shadow: 0 0 10px rgba(189, 83, 247, 0.35);
 }
 
 .allocation-label {

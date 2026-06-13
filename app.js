@@ -390,11 +390,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Sort allocations by supplyAssets descending
         data.allocations.sort((a, b) => b.supplyAssets - a.supplyAssets);
 
-        data.allocations.forEach(alloc => {
+        data.allocations.forEach((alloc, index) => {
           const isBreached = alloc.collateralSymbol !== 'USDC (Idle)' && alloc.marketUtilization >= settings.morphoUtilizationThreshold;
           
           const item = document.createElement('div');
-          item.className = isBreached ? 'allocation-row error' : 'allocation-row';
+          let rowClass = 'allocation-row';
+          if (isBreached) rowClass += ' error';
+          if (index === 0) rowClass += ' largest';
+          item.className = rowClass;
           
           // Display Name and Allocation size
           const label = document.createElement('div');

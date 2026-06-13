@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
             supplyAssets
             supplyCap
             market {
-              uniqueKey
+              marketId
               lltv
               collateralAsset {
                 symbol
@@ -280,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const loanSymbol = alloc.market && alloc.market.loanAsset ? alloc.market.loanAsset.symbol : 'USDC';
         const marketDecimals = alloc.market && alloc.market.loanAsset ? alloc.market.loanAsset.decimals : decimals;
-        const uniqueKey = alloc.market ? alloc.market.uniqueKey : null;
+        const marketId = alloc.market ? alloc.market.marketId : null;
 
         let marketSupply = 0;
         let marketBorrow = 0;
@@ -304,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
           marketBorrow,
           marketUtilization,
           marketSupplyApy,
-          uniqueKey
+          marketId
         });
       }
     }
@@ -402,8 +402,8 @@ document.addEventListener('DOMContentLoaded', () => {
           const symbolClass = alloc.collateralSymbol.toLowerCase().replace(/[^a-z0-9]/g, '');
           
           let linkHTML = '';
-          if (alloc.uniqueKey) {
-            linkHTML = ` <a href="https://app.morpho.org/${chainName}/market/${alloc.uniqueKey}" target="_blank" class="market-link" title="View Market on Morpho">
+          if (alloc.marketId) {
+            linkHTML = ` <a href="https://app.morpho.org/${chainName}/market/${alloc.marketId}" target="_blank" class="market-link" title="View Market on Morpho">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
             </a>`;
           }

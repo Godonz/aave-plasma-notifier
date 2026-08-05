@@ -129,6 +129,75 @@ async function getAaveData() {
   };
 }
 
+const fs = require('fs');
+const path = require('path');
+
+const HISTORY_FILE = path.join(__dirname, 'history-aave.json');
+
+function loadHistory() {
+  try {
+    if (fs.existsSync(HISTORY_FILE)) {
+      return JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+    }
+  } catch (err) {
+    console.warn("Failed to load history-aave.json:", err.message);
+  }
+  return [];
+}
+
+function saveHistory(history) {
+  try {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), 'utf8');
+    console.log("Updated history-aave.json saved.");
+  } catch (err) {
+    console.error("Failed to save history-aave.json:", err.message);
+  }
+}
+
+function getDaysAgoEntry(history, daysAgo) {
+  if (!history || history.length === 0) return null;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const pastEntries = history.filter(e => e.date < todayStr).sort((a, b) => new Date(a.date) - new Date(b.date));
+  
+  if (pastEntries.length === 0) return null;
+
+  const today = new Date(todayStr);
+
+  for (let i = pastEntries.length - 1; i >= 0; i--) {
+    const entryDate = new Date(pastEntries[i].date);
+    const diffDays = Math.round((today - entryDate) / (1000 * 60 * 60 * 24));
+    if (daysAgo === 1 && (diffDays === 1 || diffDays === 2)) {
+      return pastEntries[i];
+    }
+    if (daysAgo === 7 && (diffDays >= 6 && diffDays <= 8)) {
+      return pastEntries[i];
+    }
+  }
+
+  if (daysAgo === 1 && pastEntries.length > 0) {
+    return pastEntries[pastEntries.length - 1];
+  }
+  if (daysAgo === 7 && pastEntries.length >= 7) {
+    return pastEntries[pastEntries.length - 7];
+  }
+
+  return null;
+}
+
+function formatComparison(currentVal, pastVal, unit = '%') {
+  if (pastVal === undefined || pastVal === null || isNaN(pastVal)) return '';
+  const diff = currentVal - pastVal;
+  const absFormatted = Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + unit;
+  
+  if (diff > 0) {
+    return ` (+${absFormatted}) 🟢`;
+  } else if (diff < 0) {
+    return ` (-${absFormatted}) 🔴`;
+  } else {
+    return ` (0.00${unit})`;
+  }
+}
+
 // Send telegram alert
 async function sendTelegramAlert(data) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
@@ -136,10 +205,53 @@ async function sendTelegramAlert(data) {
     return;
   }
 
-  const netApyStr = data.netApy.toFixed(2) + '%';
-  const utilizationStr = data.utilization.toFixed(2) + '%';
-  const supplyStr = formatMillions(data.totalSupply);
-  const borrowStr = formatMillions(data.totalBorrow);
+  let netApyStr = data.netApy.toFixed(2) + '%';
+  let utilizationStr = data.utilization.toFixed(2) + '%';
+  let supplyStr = formatMillions(data.totalSupply);
+  let borrowStr = formatMillions(data.totalBorrow);
+
+  if (SEND_ALWAYS) {
+    const history = loadHistory();
+    const curNetApy = data.netApy;
+    const curUtil = data.utilization;
+    const curSupply = data.totalSupply / 1e6;
+    const curBorrow = data.totalBorrow / 1e6;
+
+    const yest = getDaysAgoEntry(history, 1);
+    const week = getDaysAgoEntry(history, 7);
+
+    const diffApy1 = yest ? formatComparison(curNetApy, yest.netApy, '%') : '';
+    const diffUtil1 = yest ? formatComparison(curUtil, yest.utilization, '%') : '';
+    const diffSupply1 = yest ? formatComparison(curSupply, yest.totalSupplyM, 'M') : '';
+    const diffBorrow1 = yest ? formatComparison(curBorrow, yest.totalBorrowM, 'M') : '';
+
+    const diffApy7 = week ? ` past week${formatComparison(curNetApy, week.netApy, '%')}` : '';
+    const diffUtil7 = week ? ` past week${formatComparison(curUtil, week.utilization, '%')}` : '';
+    const diffSupply7 = week ? ` past week${formatComparison(curSupply, week.totalSupplyM, 'M')}` : '';
+    const diffBorrow7 = week ? ` past week${formatComparison(curBorrow, week.totalBorrowM, 'M')}` : '';
+
+    netApyStr += `${diffApy1}${diffApy7}`;
+    utilizationStr += `${diffUtil1}${diffUtil7}`;
+    supplyStr += `${diffSupply1}${diffSupply7}`;
+    borrowStr += `${diffBorrow1}${diffBorrow7}`;
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const existingIndex = history.findIndex(h => h.date === todayStr);
+    const todayRecord = {
+      date: todayStr,
+      netApy: Number(curNetApy.toFixed(2)),
+      utilization: Number(curUtil.toFixed(2)),
+      totalSupplyM: Number(curSupply.toFixed(2)),
+      totalBorrowM: Number(curBorrow.toFixed(2))
+    };
+
+    if (existingIndex >= 0) {
+      history[existingIndex] = todayRecord;
+    } else {
+      history.push(todayRecord);
+    }
+    saveHistory(history);
+  }
 
   const prefix = SEND_ALWAYS ? "ℹ️ *[DAILY STATUS]* Aave Plasma Pool Status" : "🚨 *[UTILIZATION ALERT]* Aave Plasma Pool Alert";
 

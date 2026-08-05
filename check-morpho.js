@@ -149,10 +149,123 @@ async function getVaultData() {
   };
 }
 
+const fs = require('fs');
+const path = require('path');
+
+const HISTORY_FILE = path.join(__dirname, 'history-morpho.json');
+
+function loadHistory() {
+  try {
+    if (fs.existsSync(HISTORY_FILE)) {
+      return JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+    }
+  } catch (err) {
+    console.warn("Failed to load history-morpho.json:", err.message);
+  }
+  return [];
+}
+
+function saveHistory(history) {
+  try {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), 'utf8');
+    console.log("Updated history-morpho.json saved.");
+  } catch (err) {
+    console.error("Failed to save history-morpho.json:", err.message);
+  }
+}
+
+function getDaysAgoEntry(history, daysAgo) {
+  if (!history || history.length === 0) return null;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const pastEntries = history.filter(e => e.date < todayStr).sort((a, b) => new Date(a.date) - new Date(b.date));
+  
+  if (pastEntries.length === 0) return null;
+
+  const today = new Date(todayStr);
+
+  for (let i = pastEntries.length - 1; i >= 0; i--) {
+    const entryDate = new Date(pastEntries[i].date);
+    const diffDays = Math.round((today - entryDate) / (1000 * 60 * 60 * 24));
+    if (daysAgo === 1 && (diffDays === 1 || diffDays === 2)) {
+      return pastEntries[i];
+    }
+    if (daysAgo === 7 && (diffDays >= 6 && diffDays <= 8)) {
+      return pastEntries[i];
+    }
+  }
+
+  if (daysAgo === 1 && pastEntries.length > 0) {
+    return pastEntries[pastEntries.length - 1];
+  }
+  if (daysAgo === 7 && pastEntries.length >= 7) {
+    return pastEntries[pastEntries.length - 7];
+  }
+
+  return null;
+}
+
+function formatComparison(currentVal, pastVal, unit = '%') {
+  if (pastVal === undefined || pastVal === null || isNaN(pastVal)) return '';
+  const diff = currentVal - pastVal;
+  const absFormatted = Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + unit;
+  
+  if (diff > 0) {
+    return ` (+${absFormatted}) 🟢`;
+  } else if (diff < 0) {
+    return ` (-${absFormatted}) 🔴`;
+  } else {
+    return ` (0.00${unit})`;
+  }
+}
+
 async function sendTelegramAlert(data, primaryAlloc, isBreached) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     console.warn("Skipping telegram notification: Token or Chat ID not configured.");
     return;
+  }
+
+  let assetsStr = formatMillions(data.totalAssets);
+  let vaultApyStr = data.vaultApy.toFixed(2) + '%';
+  let utilStr = primaryAlloc ? primaryAlloc.marketUtilization.toFixed(2) + '%' : '';
+
+  if (SEND_ALWAYS && !isBreached) {
+    const history = loadHistory();
+    const curAssetsM = data.totalAssets / 1e6;
+    const curApy = data.vaultApy;
+    const curUtil = primaryAlloc ? primaryAlloc.marketUtilization : 0;
+
+    const yest = getDaysAgoEntry(history, 1);
+    const week = getDaysAgoEntry(history, 7);
+
+    const diffAssets1 = yest ? formatComparison(curAssetsM, yest.totalAssetsM, 'M') : '';
+    const diffApy1 = yest ? formatComparison(curApy, yest.vaultApy, '%') : '';
+    const diffUtil1 = (yest && primaryAlloc) ? formatComparison(curUtil, yest.utilization, '%') : '';
+
+    const diffAssets7 = week ? ` past week${formatComparison(curAssetsM, week.totalAssetsM, 'M')}` : '';
+    const diffApy7 = week ? ` past week${formatComparison(curApy, week.vaultApy, '%')}` : '';
+    const diffUtil7 = (week && primaryAlloc) ? ` past week${formatComparison(curUtil, week.utilization, '%')}` : '';
+
+    assetsStr += `${diffAssets1}${diffAssets7}`;
+    vaultApyStr += `${diffApy1}${diffApy7}`;
+    if (primaryAlloc) {
+      utilStr += `${diffUtil1}${diffUtil7}`;
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const existingIndex = history.findIndex(h => h.date === todayStr);
+    const todayRecord = {
+      date: todayStr,
+      vaultApy: Number(curApy.toFixed(2)),
+      totalAssetsM: Number(curAssetsM.toFixed(2)),
+      utilization: Number(curUtil.toFixed(2))
+    };
+
+    if (existingIndex >= 0) {
+      history[existingIndex] = todayRecord;
+    } else {
+      history.push(todayRecord);
+    }
+    saveHistory(history);
   }
 
   const prefix = isBreached 
@@ -161,12 +274,12 @@ async function sendTelegramAlert(data, primaryAlloc, isBreached) {
 
   let message = `${prefix}\n` + 
                 `Vault: *${data.name} (${data.symbol})*\n` +
-                `Total Vault Assets: *${formatMillions(data.totalAssets)}*\n` +
-                `Vault Net APY: *${data.vaultApy.toFixed(2)}%*\n\n`;
+                `Total Vault Assets: *${assetsStr}*\n` +
+                `Vault Net APY: *${vaultApyStr}*\n\n`;
 
   if (primaryAlloc) {
     message += `📍 *Largest Allocation Market:* ${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}\n` +
-               `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (🔥 BREACHED)' : ''}`;
+               `• *Utilization:* ${utilStr}${isBreached ? ' (🔥 BREACHED)' : ''}`;
   } else {
     message += `⚠️ No active allocation markets found.`;
   }

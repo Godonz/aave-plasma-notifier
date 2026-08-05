@@ -7,6 +7,8 @@ on:
 jobs:
   daily-report-morpho:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout repository
@@ -26,3 +28,10 @@ jobs:
         MORPHO_CHAIN_ID: ${{ vars.MORPHO_CHAIN_ID }}
         SEND_ALWAYS: 'true' # Force notification regardless of threshold
       run: node check-morpho.js
+
+    - name: Commit & Push Daily History
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add history-morpho.json
+        git diff --quiet && git diff --staged --quiet || (git commit -m "update Morpho daily history" && git push)

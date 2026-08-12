@@ -218,22 +218,16 @@ async function sendTelegramAlert(data) {
     const curBorrow = data.totalBorrow / 1e6;
 
     const yest = getDaysAgoEntry(history, 1);
-    const week = getDaysAgoEntry(history, 7);
 
     const diffApy1 = yest ? formatComparison(curNetApy, yest.netApy, '%') : '';
     const diffUtil1 = yest ? formatComparison(curUtil, yest.utilization, '%') : '';
     const diffSupply1 = yest ? formatComparison(curSupply, yest.totalSupplyM, 'M') : '';
     const diffBorrow1 = yest ? formatComparison(curBorrow, yest.totalBorrowM, 'M') : '';
 
-    const diffApy7 = week ? ` past week${formatComparison(curNetApy, week.netApy, '%')}` : '';
-    const diffUtil7 = week ? ` past week${formatComparison(curUtil, week.utilization, '%')}` : '';
-    const diffSupply7 = week ? ` past week${formatComparison(curSupply, week.totalSupplyM, 'M')}` : '';
-    const diffBorrow7 = week ? ` past week${formatComparison(curBorrow, week.totalBorrowM, 'M')}` : '';
-
-    netApyStr += `${diffApy1}${diffApy7}`;
-    utilizationStr += `${diffUtil1}${diffUtil7}`;
-    supplyStr += `${diffSupply1}${diffSupply7}`;
-    borrowStr += `${diffBorrow1}${diffBorrow7}`;
+    netApyStr += `${diffApy1}`;
+    utilizationStr += `${diffUtil1}`;
+    supplyStr += `${diffSupply1}`;
+    borrowStr += `${diffBorrow1}`;
 
     const todayStr = new Date().toISOString().slice(0, 10);
     const existingIndex = history.findIndex(h => h.date === todayStr);

@@ -235,20 +235,15 @@ async function sendTelegramAlert(data, primaryAlloc, isBreached) {
     const curUtil = primaryAlloc ? primaryAlloc.marketUtilization : 0;
 
     const yest = getDaysAgoEntry(history, 1);
-    const week = getDaysAgoEntry(history, 7);
 
     const diffAssets1 = yest ? formatComparison(curAssetsM, yest.totalAssetsM, 'M') : '';
     const diffApy1 = yest ? formatComparison(curApy, yest.vaultApy, '%') : '';
     const diffUtil1 = (yest && primaryAlloc) ? formatComparison(curUtil, yest.utilization, '%') : '';
 
-    const diffAssets7 = week ? ` past week${formatComparison(curAssetsM, week.totalAssetsM, 'M')}` : '';
-    const diffApy7 = week ? ` past week${formatComparison(curApy, week.vaultApy, '%')}` : '';
-    const diffUtil7 = (week && primaryAlloc) ? ` past week${formatComparison(curUtil, week.utilization, '%')}` : '';
-
-    assetsStr += `${diffAssets1}${diffAssets7}`;
-    vaultApyStr += `${diffApy1}${diffApy7}`;
+    assetsStr += `${diffAssets1}`;
+    vaultApyStr += `${diffApy1}`;
     if (primaryAlloc) {
-      utilStr += `${diffUtil1}${diffUtil7}`;
+      utilStr += `${diffUtil1}`;
     }
 
     const todayStr = new Date().toISOString().slice(0, 10);

@@ -103,5 +103,12 @@
     "utilization": 89.85,
     "totalSupplyM": 711.43,
     "totalBorrowM": 639.22
+  },
+  {
+    "date": "2026-08-20",
+    "netApy": 3.52,
+    "utilization": 91.48,
+    "totalSupplyM": 708.65,
+    "totalBorrowM": 648.25
   }
 ]

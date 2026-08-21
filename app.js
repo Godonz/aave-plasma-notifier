@@ -15,10 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
     telegramChatId: '',
     utilizationThreshold: 94.0,
     checkIntervalMinutes: 40,
-    rpcUrl: 'https://rpc.plasma.to',
-    assetAddress: '0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb',
-    poolAddress: '0x925a2A7214Ed92428B5b1B090F80b25700095e12',
-    dataProviderAddress: '0xf2D6E38B407e31E7E7e4a16E6769728b76c7419F',
+    rpcUrl: 'https://ethereum-rpc.publicnode.com',
+    assetAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+    poolAddress: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
+    dataProviderAddress: '0x0a16f2FCC0D44FaE41cc54e079281D84A363bECD',
     
     // Morpho Defaults
     morphoUtilizationThreshold: 94.0,
@@ -76,6 +76,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const stored = localStorage.getItem('aave_notifier_settings');
       if (stored) {
         settings = { ...DEFAULTS, ...JSON.parse(stored) };
+
+        // Auto-migrate from old Plasma defaults to Ethereum defaults if detected
+        if (
+          settings.rpcUrl === 'https://rpc.plasma.to' ||
+          (settings.assetAddress && settings.assetAddress.toLowerCase() === '0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb')
+        ) {
+          settings.rpcUrl = DEFAULTS.rpcUrl;
+          settings.assetAddress = DEFAULTS.assetAddress;
+          settings.poolAddress = DEFAULTS.poolAddress;
+          settings.dataProviderAddress = DEFAULTS.dataProviderAddress;
+          localStorage.setItem('aave_notifier_settings', JSON.stringify(settings));
+          console.log("Migrated settings from Plasma to Ethereum defaults.");
+        }
       }
       
       // Populate inputs
@@ -489,8 +502,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const data = await fetchAaveData();
-      const message = `🔔 *[TEST MESSAGE]* Aave Plasma Pool Alert\n` + 
-                      `Asset: *USDT0*\n\n` +
+      const message = `🔔 *[TEST MESSAGE]* Aave Ethereum Pool Alert\n` + 
+                      `Asset: *USDT*\n\n` +
                       `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
                       `• *Utilization:* ${data.utilization.toFixed(2)}%\n` +
                       `• *Total Supply:* ${formatM(data.totalSupply)}\n` +

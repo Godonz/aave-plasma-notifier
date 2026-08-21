@@ -1,17 +1,17 @@
 // check.js
-// Node.js script to monitor Aave V3.5 USDT0 pool on Plasma network
+// Node.js script to monitor Aave V3 USDT pool on Ethereum network
 // Runs inside GitHub Actions (requires Node.js 18+)
 
 // 1. Load Configurations from Environment Variables
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const UTILIZATION_THRESHOLD = parseFloat(process.env.UTILIZATION_THRESHOLD || '94.0');
-const RPC_URL = process.env.RPC_URL || 'https://rpc.plasma.to';
+const RPC_URL = process.env.RPC_URL || 'https://ethereum-rpc.publicnode.com';
 const SEND_ALWAYS = process.env.SEND_ALWAYS === 'true';
 
-const ASSET_ADDRESS = process.env.ASSET_ADDRESS || '0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb';
-const POOL_ADDRESS = process.env.POOL_ADDRESS || '0x925a2A7214Ed92428B5b1B090F80b25700095e12';
-const DATA_PROVIDER_ADDRESS = process.env.DATA_PROVIDER_ADDRESS || '0xf2D6E38B407e31E7E7e4a16E6769728b76c7419F';
+const ASSET_ADDRESS = process.env.ASSET_ADDRESS || '0xdAC17F958D2ee523a2206206994597C13D831ec7';
+const POOL_ADDRESS = process.env.POOL_ADDRESS || '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2';
+const DATA_PROVIDER_ADDRESS = process.env.DATA_PROVIDER_ADDRESS || '0x0a16f2FCC0D44FaE41cc54e079281D84A363bECD';
 
 // Helper to format currency values to Millions
 function formatMillions(value) {
@@ -247,10 +247,10 @@ async function sendTelegramAlert(data) {
     saveHistory(history);
   }
 
-  const prefix = SEND_ALWAYS ? "ℹ️ *[DAILY STATUS]* Aave Plasma Pool Status" : "🚨 *[UTILIZATION ALERT]* Aave Plasma Pool Alert";
+  const prefix = SEND_ALWAYS ? "ℹ️ *[DAILY STATUS]* Aave Ethereum Pool Status" : "🚨 *[UTILIZATION ALERT]* Aave Ethereum Pool Alert";
 
   const message = `${prefix}\n` + 
-                  `Asset: *USDT0*\n\n` +
+                  `Asset: *USDT*\n\n` +
                   `• *Net APY:* ${netApyStr}\n` +
                   `• *Utilization:* ${utilizationStr}\n` +
                   `• *Total Supply:* ${supplyStr}\n` +

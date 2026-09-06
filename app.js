@@ -124,6 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       document.getElementById('utilizationThreshold').value = settings.utilizationThreshold;
       document.getElementById('checkIntervalMinutes').value = settings.checkIntervalMinutes;
+      settings.morphoUtilizationThreshold = settings.utilizationThreshold;
       
       document.getElementById('rpcUrl').value = settings.rpcUrl;
       document.getElementById('assetAddress').value = settings.assetAddress;
@@ -131,7 +132,6 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('dataProviderAddress').value = settings.dataProviderAddress;
 
       // Morpho settings loading
-      document.getElementById('morphoUtilizationThreshold').value = settings.morphoUtilizationThreshold;
       document.getElementById('morphoVaultAddress').value = settings.morphoVaultAddress;
       document.getElementById('morphoChainId').value = settings.morphoChainId;
       
@@ -165,10 +165,11 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (e) {}
     }
 
+    const thresholdVal = parseFloat(newSettings.utilizationThreshold);
     const mergedConfig = {
       ...existingContent,
-      utilizationThreshold: parseFloat(newSettings.utilizationThreshold),
-      morphoUtilizationThreshold: parseFloat(newSettings.morphoUtilizationThreshold),
+      utilizationThreshold: thresholdVal,
+      morphoUtilizationThreshold: thresholdVal,
       checkIntervalMinutes: parseFloat(newSettings.checkIntervalMinutes),
       rpcUrl: newSettings.rpcUrl || existingContent.rpcUrl || 'https://ethereum-rpc.publicnode.com',
       assetAddress: newSettings.assetAddress || existingContent.assetAddress || '0xdAC17F958D2ee523a2206206994597C13D831ec7',
@@ -179,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const contentBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(mergedConfig, null, 2))));
-    const commitMsg = `Update bot config (Aave: ${mergedConfig.utilizationThreshold}%, Morpho: ${mergedConfig.morphoUtilizationThreshold}%, Interval: ${mergedConfig.checkIntervalMinutes}m)`;
+    const commitMsg = `Update bot config (Pool Limit: ${mergedConfig.utilizationThreshold}%, Interval: ${mergedConfig.checkIntervalMinutes}m)`;
 
     const putRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
       method: 'PUT',
@@ -208,12 +209,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const updated = {};
     
     formData.forEach((val, key) => {
-      if (key === 'utilizationThreshold' || key === 'checkIntervalMinutes' || key === 'morphoUtilizationThreshold' || key === 'morphoChainId') {
+      if (key === 'utilizationThreshold' || key === 'checkIntervalMinutes' || key === 'morphoChainId') {
         updated[key] = parseFloat(val);
       } else {
         updated[key] = typeof val === 'string' ? val.trim() : val;
       }
     });
+
+    // Mirror utilizationThreshold to morphoUtilizationThreshold
+    updated.morphoUtilizationThreshold = updated.utilizationThreshold;
 
     try {
       settings = { ...DEFAULTS, ...updated };
@@ -645,7 +649,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const data = await fetchMorphoData();
       
-      const threshold = parseFloat(document.getElementById('morphoUtilizationThreshold').value || '94.0');
+      const threshold = parseFloat(document.getElementById('utilizationThreshold').value || settings.utilizationThreshold || '94.0');
       
       let primaryAlloc = null;
       data.allocations.forEach(alloc => {

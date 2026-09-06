@@ -1,7 +1,7 @@
 {
-  "utilizationThreshold": 94.0,
-  "morphoUtilizationThreshold": 94.0,
-  "checkIntervalMinutes": 40,
+  "utilizationThreshold": 94,
+  "morphoUtilizationThreshold": 94,
+  "checkIntervalMinutes": 60,
   "poolAddress": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
   "dataProviderAddress": "0x0a16f2FCC0D44FaE41cc54e079281D84A363bECD",
   "assetAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",

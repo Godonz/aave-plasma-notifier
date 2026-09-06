@@ -1,14 +1,30 @@
-// check-morpho.js
-// Node.js script to monitor Morpho Steakhouse Prime USDC vault allocations on Base
-// Runs inside GitHub Actions (requires Node.js 18+)
+const fs = require('fs');
+const path = require('path');
+
+// 1. Load Configurations from config.json (Single Source of Truth) or Environment Variables
+const CONFIG_FILE = path.join(__dirname, 'config.json');
+let config = {};
+try {
+  if (fs.existsSync(CONFIG_FILE)) {
+    config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+  }
+} catch (err) {
+  console.warn("Could not read config.json:", err.message);
+}
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-const UTILIZATION_THRESHOLD = parseFloat(process.env.MORPHO_UTILIZATION_THRESHOLD || '94.0');
 const SEND_ALWAYS = process.env.SEND_ALWAYS === 'true';
 
-const VAULT_ADDRESS = (process.env.MORPHO_VAULT_ADDRESS || '0xeE8F4eC5672F09119b96Ab6fB59C27E1b7e44b61').toLowerCase();
-const CHAIN_ID = parseInt(process.env.MORPHO_CHAIN_ID || '8453');
+const UTILIZATION_THRESHOLD = parseFloat(
+  config.morphoUtilizationThreshold !== undefined ? config.morphoUtilizationThreshold : (process.env.MORPHO_UTILIZATION_THRESHOLD || '94.0')
+);
+const CHECK_INTERVAL_MINUTES = parseFloat(
+  config.checkIntervalMinutes !== undefined ? config.checkIntervalMinutes : (process.env.CHECK_INTERVAL_MINUTES || '40')
+);
+
+const VAULT_ADDRESS = (process.env.MORPHO_VAULT_ADDRESS || config.morphoVaultAddress || '0xeE8F4eC5672F09119b96Ab6fB59C27E1b7e44b61').toLowerCase();
+const CHAIN_ID = parseInt(process.env.MORPHO_CHAIN_ID || config.morphoChainId || '8453');
 
 function formatMillions(value) {
   return (value / 1000000.0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'M';
@@ -149,10 +165,28 @@ async function getVaultData() {
   };
 }
 
-const fs = require('fs');
-const path = require('path');
-
 const HISTORY_FILE = path.join(__dirname, 'history-morpho.json');
+const ALERT_STATE_FILE = path.join(__dirname, 'alert-state.json');
+
+function loadAlertState() {
+  try {
+    if (fs.existsSync(ALERT_STATE_FILE)) {
+      return JSON.parse(fs.readFileSync(ALERT_STATE_FILE, 'utf8'));
+    }
+  } catch (err) {
+    console.warn("Failed to load alert-state.json:", err.message);
+  }
+  return { lastAaveAlertTime: 0, lastMorphoAlertTime: 0 };
+}
+
+function saveAlertState(state) {
+  try {
+    fs.writeFileSync(ALERT_STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+    console.log("Updated alert-state.json saved.");
+  } catch (err) {
+    console.error("Failed to save alert-state.json:", err.message);
+  }
+}
 
 function loadHistory() {
   try {
@@ -323,8 +357,24 @@ async function run() {
 
       const isBreached = primaryAlloc.marketUtilization >= UTILIZATION_THRESHOLD;
       if (isBreached) {
-        console.log("Utilization threshold breached in the primary market!");
-        await sendTelegramAlert(data, primaryAlloc, true);
+        if (!SEND_ALWAYS) {
+          const alertState = loadAlertState();
+          const now = Date.now();
+          const lastAlert = alertState.lastMorphoAlertTime || 0;
+          const elapsedMinutes = (now - lastAlert) / (1000 * 60);
+
+          if (elapsedMinutes < CHECK_INTERVAL_MINUTES) {
+            console.log(`[ALERT COOLDOWN] Morpho breached (${primaryAlloc.marketUtilization.toFixed(2)}% >= ${UTILIZATION_THRESHOLD.toFixed(2)}%), but last alert was sent ${elapsedMinutes.toFixed(1)}m ago (Cooldown interval is ${CHECK_INTERVAL_MINUTES}m). Skipping notification.`);
+            return;
+          }
+
+          console.log("Utilization threshold breached in the primary market!");
+          await sendTelegramAlert(data, primaryAlloc, true);
+          alertState.lastMorphoAlertTime = now;
+          saveAlertState(alertState);
+        } else {
+          await sendTelegramAlert(data, primaryAlloc, true);
+        }
       } else if (SEND_ALWAYS) {
         console.log("Sending forced daily status update...");
         await sendTelegramAlert(data, primaryAlloc, false);

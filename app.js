@@ -8,11 +8,14 @@ document.addEventListener('DOMContentLoaded', () => {
   
   const tokenInput = document.getElementById('telegramBotToken');
   const toggleTokenBtn = document.getElementById('toggle-token-btn');
+  const githubTokenInput = document.getElementById('githubToken');
+  const toggleGithubTokenBtn = document.getElementById('toggle-github-token-btn');
 
   // Default values
   const DEFAULTS = {
     telegramBotToken: '',
     telegramChatId: '',
+    githubToken: '',
     utilizationThreshold: 94.0,
     checkIntervalMinutes: 40,
     rpcUrl: 'https://ethereum-rpc.publicnode.com',
@@ -47,8 +50,18 @@ document.addEventListener('DOMContentLoaded', () => {
     tokenInput.setAttribute('type', type);
     toggleTokenBtn.innerHTML = type === 'text' 
       ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`
-      : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+      : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
   });
+
+  if (toggleGithubTokenBtn && githubTokenInput) {
+    toggleGithubTokenBtn.addEventListener('click', () => {
+      const type = githubTokenInput.getAttribute('type') === 'password' ? 'text' : 'password';
+      githubTokenInput.setAttribute('type', type);
+      toggleGithubTokenBtn.innerHTML = type === 'text'
+        ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`
+        : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+    });
+  }
 
   // Toast notification
   function showToast(message, type = 'success') {
@@ -70,30 +83,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 4000);
   }
 
-  // Load configuration from Browser localStorage
-  function loadConfig() {
+  // Load configuration from Browser localStorage & GitHub config.json
+  async function loadConfig() {
     try {
       const stored = localStorage.getItem('aave_notifier_settings');
       if (stored) {
         settings = { ...DEFAULTS, ...JSON.parse(stored) };
+      }
 
-        // Auto-migrate from old Plasma defaults to Ethereum defaults if detected
-        if (
-          settings.rpcUrl === 'https://rpc.plasma.to' ||
-          (settings.assetAddress && settings.assetAddress.toLowerCase() === '0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb')
-        ) {
-          settings.rpcUrl = DEFAULTS.rpcUrl;
-          settings.assetAddress = DEFAULTS.assetAddress;
-          settings.poolAddress = DEFAULTS.poolAddress;
-          settings.dataProviderAddress = DEFAULTS.dataProviderAddress;
-          localStorage.setItem('aave_notifier_settings', JSON.stringify(settings));
-          console.log("Migrated settings from Plasma to Ethereum defaults.");
+      // Try fetching latest cloud config from repo if online
+      try {
+        const repoConfigRes = await fetch('https://raw.githubusercontent.com/Godonz/aave-plasma-notifier/main/config.json?cacheBust=' + Date.now());
+        if (repoConfigRes.ok) {
+          const repoConfig = await repoConfigRes.json();
+          if (repoConfig.utilizationThreshold !== undefined) {
+            settings.utilizationThreshold = parseFloat(repoConfig.utilizationThreshold);
+          }
+          if (repoConfig.morphoUtilizationThreshold !== undefined) {
+            settings.morphoUtilizationThreshold = parseFloat(repoConfig.morphoUtilizationThreshold);
+          }
+          if (repoConfig.checkIntervalMinutes !== undefined) {
+            settings.checkIntervalMinutes = parseFloat(repoConfig.checkIntervalMinutes);
+          }
+          if (repoConfig.rpcUrl) settings.rpcUrl = repoConfig.rpcUrl;
+          if (repoConfig.assetAddress) settings.assetAddress = repoConfig.assetAddress;
+          if (repoConfig.poolAddress) settings.poolAddress = repoConfig.poolAddress;
+          if (repoConfig.dataProviderAddress) settings.dataProviderAddress = repoConfig.dataProviderAddress;
+          if (repoConfig.morphoVaultAddress) settings.morphoVaultAddress = repoConfig.morphoVaultAddress;
+          if (repoConfig.morphoChainId) settings.morphoChainId = repoConfig.morphoChainId;
         }
+      } catch (fetchErr) {
+        console.log("Using local settings, remote config fetch skipped:", fetchErr.message);
       }
       
       // Populate inputs
-      document.getElementById('telegramBotToken').value = settings.telegramBotToken;
-      document.getElementById('telegramChatId').value = settings.telegramChatId;
+      document.getElementById('telegramBotToken').value = settings.telegramBotToken || '';
+      document.getElementById('telegramChatId').value = settings.telegramChatId || '';
+      if (document.getElementById('githubToken')) {
+        document.getElementById('githubToken').value = settings.githubToken || '';
+      }
       document.getElementById('utilizationThreshold').value = settings.utilizationThreshold;
       document.getElementById('checkIntervalMinutes').value = settings.checkIntervalMinutes;
       
@@ -107,14 +135,74 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('morphoVaultAddress').value = settings.morphoVaultAddress;
       document.getElementById('morphoChainId').value = settings.morphoChainId;
       
-      console.log("Settings loaded from localStorage successfully.");
+      console.log("Settings loaded successfully.");
     } catch (err) {
       showToast('Error reading settings: ' + err.message, 'error');
     }
   }
 
-  // Save config to Browser localStorage
-  configForm.addEventListener('submit', (e) => {
+  // GitHub API Sync Helper: updates config.json in repository
+  async function syncConfigToGitHub(token, newSettings) {
+    const owner = 'Godonz';
+    const repo = 'aave-plasma-notifier';
+    const path = 'config.json';
+    
+    // 1. Get current config.json SHA and contents
+    const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json'
+      }
+    });
+
+    let sha = null;
+    let existingContent = {};
+    if (getRes.ok) {
+      const data = await getRes.json();
+      sha = data.sha;
+      try {
+        existingContent = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\s/g, '')))));
+      } catch (e) {}
+    }
+
+    const mergedConfig = {
+      ...existingContent,
+      utilizationThreshold: parseFloat(newSettings.utilizationThreshold),
+      morphoUtilizationThreshold: parseFloat(newSettings.morphoUtilizationThreshold),
+      checkIntervalMinutes: parseFloat(newSettings.checkIntervalMinutes),
+      rpcUrl: newSettings.rpcUrl || existingContent.rpcUrl || 'https://ethereum-rpc.publicnode.com',
+      assetAddress: newSettings.assetAddress || existingContent.assetAddress || '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+      poolAddress: newSettings.poolAddress || existingContent.poolAddress || '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
+      dataProviderAddress: newSettings.dataProviderAddress || existingContent.dataProviderAddress || '0x0a16f2FCC0D44FaE41cc54e079281D84A363bECD',
+      morphoVaultAddress: newSettings.morphoVaultAddress || existingContent.morphoVaultAddress || '0xeE8F4eC5672F09119b96Ab6fB59C27E1b7e44b61',
+      morphoChainId: parseInt(newSettings.morphoChainId) || existingContent.morphoChainId || 8453
+    };
+
+    const contentBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(mergedConfig, null, 2))));
+    const commitMsg = `Update bot config (Aave: ${mergedConfig.utilizationThreshold}%, Morpho: ${mergedConfig.morphoUtilizationThreshold}%, Interval: ${mergedConfig.checkIntervalMinutes}m)`;
+
+    const putRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: commitMsg,
+        content: contentBase64,
+        ...(sha ? { sha } : {})
+      })
+    });
+
+    if (!putRes.ok) {
+      const err = await putRes.json();
+      throw new Error(err.message || 'GitHub API returned error');
+    }
+  }
+
+  // Save config to Browser localStorage & optionally sync with GitHub
+  configForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(configForm);
     const updated = {};
@@ -123,16 +211,36 @@ document.addEventListener('DOMContentLoaded', () => {
       if (key === 'utilizationThreshold' || key === 'checkIntervalMinutes' || key === 'morphoUtilizationThreshold' || key === 'morphoChainId') {
         updated[key] = parseFloat(val);
       } else {
-        updated[key] = val;
+        updated[key] = typeof val === 'string' ? val.trim() : val;
       }
     });
 
     try {
       settings = { ...DEFAULTS, ...updated };
       localStorage.setItem('aave_notifier_settings', JSON.stringify(settings));
-      showToast('Settings saved in browser cache!');
+
+      const submitBtn = configForm.querySelector('button[type="submit"]');
+      const origBtnText = submitBtn.textContent;
+
+      if (settings.githubToken) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Syncing to GitHub...';
+        showToast('Saving and syncing to GitHub Cloud...', 'success');
+
+        try {
+          await syncConfigToGitHub(settings.githubToken, settings);
+          showToast('✅ บันทึกและซิงค์การตั้งค่าไปยัง GitHub เรียบร้อยแล้ว!');
+        } catch (syncErr) {
+          console.error("Sync error:", syncErr);
+          showToast('⚠️ Saved locally, but GitHub sync failed: ' + syncErr.message, 'error');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = origBtnText;
+        }
+      } else {
+        showToast('💾 Settings saved locally! (Enter GitHub Token above to auto-sync with cloud bot)');
+      }
       
-      // Refresh dashboard metrics immediately using the new parameters
       refreshAllMetrics();
     } catch (err) {
       showToast('Failed to save settings: ' + err.message, 'error');
@@ -573,8 +681,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Initial load
-  loadConfig();
-  refreshAllMetrics();
+  loadConfig().finally(() => {
+    refreshAllMetrics();
+  });
 
   // Refresh every 10 seconds
   setInterval(refreshAllMetrics, 10000);

@@ -1,17 +1,32 @@
-// check.js
-// Node.js script to monitor Aave V3 USDT pool on Ethereum network
-// Runs inside GitHub Actions (requires Node.js 18+)
+const fs = require('fs');
+const path = require('path');
 
-// 1. Load Configurations from Environment Variables
+// 1. Load Configurations from config.json (Single Source of Truth) or Environment Variables
+const CONFIG_FILE = path.join(__dirname, 'config.json');
+let config = {};
+try {
+  if (fs.existsSync(CONFIG_FILE)) {
+    config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+  }
+} catch (err) {
+  console.warn("Could not read config.json:", err.message);
+}
+
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-const UTILIZATION_THRESHOLD = parseFloat(process.env.UTILIZATION_THRESHOLD || '94.0');
-const RPC_URL = process.env.RPC_URL || 'https://ethereum-rpc.publicnode.com';
 const SEND_ALWAYS = process.env.SEND_ALWAYS === 'true';
 
-const ASSET_ADDRESS = process.env.ASSET_ADDRESS || '0xdAC17F958D2ee523a2206206994597C13D831ec7';
-const POOL_ADDRESS = process.env.POOL_ADDRESS || '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2';
-const DATA_PROVIDER_ADDRESS = process.env.DATA_PROVIDER_ADDRESS || '0x0a16f2FCC0D44FaE41cc54e079281D84A363bECD';
+const UTILIZATION_THRESHOLD = parseFloat(
+  config.utilizationThreshold !== undefined ? config.utilizationThreshold : (process.env.UTILIZATION_THRESHOLD || '94.0')
+);
+const CHECK_INTERVAL_MINUTES = parseFloat(
+  config.checkIntervalMinutes !== undefined ? config.checkIntervalMinutes : (process.env.CHECK_INTERVAL_MINUTES || '40')
+);
+
+const RPC_URL = process.env.RPC_URL || config.rpcUrl || 'https://ethereum-rpc.publicnode.com';
+const ASSET_ADDRESS = process.env.ASSET_ADDRESS || config.assetAddress || '0xdAC17F958D2ee523a2206206994597C13D831ec7';
+const POOL_ADDRESS = process.env.POOL_ADDRESS || config.poolAddress || '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2';
+const DATA_PROVIDER_ADDRESS = process.env.DATA_PROVIDER_ADDRESS || config.dataProviderAddress || '0x0a16f2FCC0D44FaE41cc54e079281D84A363bECD';
 
 // Helper to format currency values to Millions
 function formatMillions(value) {
@@ -129,10 +144,28 @@ async function getAaveData() {
   };
 }
 
-const fs = require('fs');
-const path = require('path');
-
 const HISTORY_FILE = path.join(__dirname, 'history-aave.json');
+const ALERT_STATE_FILE = path.join(__dirname, 'alert-state.json');
+
+function loadAlertState() {
+  try {
+    if (fs.existsSync(ALERT_STATE_FILE)) {
+      return JSON.parse(fs.readFileSync(ALERT_STATE_FILE, 'utf8'));
+    }
+  } catch (err) {
+    console.warn("Failed to load alert-state.json:", err.message);
+  }
+  return { lastAaveAlertTime: 0, lastMorphoAlertTime: 0 };
+}
+
+function saveAlertState(state) {
+  try {
+    fs.writeFileSync(ALERT_STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+    console.log("Updated alert-state.json saved.");
+  } catch (err) {
+    console.error("Failed to save alert-state.json:", err.message);
+  }
+}
 
 function loadHistory() {
   try {
@@ -286,8 +319,25 @@ async function run() {
     console.log(`Total Borrow: ${formatMillions(data.totalBorrow)} / ${formatCap(data.borrowCap)}`);
 
     if (data.utilization >= UTILIZATION_THRESHOLD || SEND_ALWAYS) {
-      console.log("Triggering Telegram notification...");
-      await sendTelegramAlert(data);
+      if (!SEND_ALWAYS) {
+        const alertState = loadAlertState();
+        const now = Date.now();
+        const lastAlert = alertState.lastAaveAlertTime || 0;
+        const elapsedMinutes = (now - lastAlert) / (1000 * 60);
+
+        if (elapsedMinutes < CHECK_INTERVAL_MINUTES) {
+          console.log(`[ALERT COOLDOWN] Utilization breached (${data.utilization.toFixed(2)}% >= ${UTILIZATION_THRESHOLD.toFixed(2)}%), but last alert was sent ${elapsedMinutes.toFixed(1)}m ago (Cooldown interval is ${CHECK_INTERVAL_MINUTES}m). Skipping notification.`);
+          return;
+        }
+
+        console.log("Triggering Telegram notification...");
+        await sendTelegramAlert(data);
+        alertState.lastAaveAlertTime = now;
+        saveAlertState(alertState);
+      } else {
+        console.log("Triggering Telegram notification (Daily Status)...");
+        await sendTelegramAlert(data);
+      }
     } else {
       console.log("Utilization within safe limits. No action needed.");
     }

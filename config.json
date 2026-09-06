@@ -1,10 +1,11 @@
-﻿{
-    "poolAddress":  "0x925a2A7214Ed92428B5b1B090F80b25700095e12",
-    "utilizationThreshold":  94,
-    "checkIntervalMinutes":  40,
-    "telegramBotToken":  "8775279068:AAHdMjHpwZaPX66Yt-PbUFTX6UqeB5G9CMQ",
-    "telegramChatId":  "-1003988313522",
-    "rpcUrl":  "https://rpc.plasma.to",
-    "dataProviderAddress":  "0xf2D6E38B407e31E7E7e4a16E6769728b76c7419F",
-    "assetAddress":  "0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb"
+{
+  "utilizationThreshold": 94.0,
+  "morphoUtilizationThreshold": 94.0,
+  "checkIntervalMinutes": 40,
+  "poolAddress": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+  "dataProviderAddress": "0x0a16f2FCC0D44FaE41cc54e079281D84A363bECD",
+  "assetAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "rpcUrl": "https://ethereum-rpc.publicnode.com",
+  "morphoVaultAddress": "0xeE8F4eC5672F09119b96Ab6fB59C27E1b7e44b61",
+  "morphoChainId": 8453
 }

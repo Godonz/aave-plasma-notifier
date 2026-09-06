@@ -1,4 +1,4 @@
-# Aave Telegram Notifier for Plasma Chain
+# Aave Telegram Notifier for Ethereum Mainnet
 # Native PowerShell 5.1 Backend and Web Server
 
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -10,10 +10,10 @@ $defaultConfig = @{
     telegramChatId = ""
     utilizationThreshold = 94.0
     checkIntervalMinutes = 40
-    rpcUrl = "https://rpc.plasma.to"
-    assetAddress = "0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb"
-    poolAddress = "0x925a2A7214Ed92428B5b1B090F80b25700095e12"
-    dataProviderAddress = "0xf2D6E38B407e31E7E7e4a16E6769728b76c7419F"
+    rpcUrl = "https://ethereum-rpc.publicnode.com"
+    assetAddress = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+    poolAddress = "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2"
+    dataProviderAddress = "0x0a16f2FCC0D44FaE41cc54e079281D84A363bECD"
 }
 
 # Load or initialize config.json
@@ -198,8 +198,8 @@ function Send-TelegramAlert {
     
     # Telegram markdown formatting (specifically ordering requested: Net APY, Utilization, Total Supply, Total Borrow)
     $message = @"
-$prefix *Aave Plasma Pool Alert*
-Asset: *USDT0*
+$prefix *Aave Ethereum Pool Alert*
+Asset: *USDT*
 
 • *Net APY:* $netApyStr
 • *Utilization:* $utilizationStr

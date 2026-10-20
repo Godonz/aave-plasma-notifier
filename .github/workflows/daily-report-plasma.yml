@@ -1,0 +1,37 @@
+# .github/workflows/daily-report-plasma.yml
+name: Aave Plasma Daily Status Report
+
+on:
+  schedule:
+    - cron: '5 0 * * *' # 00:05 UTC = 07:05 AM Thailand Time (UTC+7)
+  workflow_dispatch: # Allows manual trigger from GitHub UI / API or cron-job.org
+
+jobs:
+  daily-report-plasma:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Run Daily Report (Plasma)
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        UTILIZATION_THRESHOLD: ${{ vars.UTILIZATION_THRESHOLD }}
+        SEND_ALWAYS: 'true' # Force notification regardless of threshold
+      run: node check-plasma.js
+
+    - name: Commit & Push Daily History
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add history-plasma.json
+        git diff --quiet && git diff --staged --quiet || (git commit -m "update Aave Plasma daily history" && git push)

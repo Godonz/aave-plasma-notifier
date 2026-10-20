@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const advancedBtn = document.getElementById('advanced-btn');
   const advancedPanel = document.getElementById('advanced-panel');
   const advancedArrow = document.getElementById('advanced-arrow');
+  const testPlasmaBtn = document.getElementById('test-plasma-btn');
   const testAlertBtn = document.getElementById('test-alert-btn');
   const testMorphoBtn = document.getElementById('test-morpho-btn');
   
@@ -18,6 +19,14 @@ document.addEventListener('DOMContentLoaded', () => {
     githubToken: '',
     utilizationThreshold: 94.0,
     checkIntervalMinutes: 40,
+
+    // Plasma Defaults
+    plasmaRpcUrl: 'https://rpc.plasma.to',
+    plasmaAssetAddress: '0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb',
+    plasmaPoolAddress: '0x925a2A7214Ed92428B5b1B090F80b25700095e12',
+    plasmaDataProviderAddress: '0xf2D6E38B407e31E7E7e4a16E6769728b76c7419F',
+
+    // Ethereum Defaults
     rpcUrl: 'https://ethereum-rpc.publicnode.com',
     assetAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
     poolAddress: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
@@ -105,6 +114,12 @@ document.addEventListener('DOMContentLoaded', () => {
           if (repoConfig.checkIntervalMinutes !== undefined) {
             settings.checkIntervalMinutes = parseFloat(repoConfig.checkIntervalMinutes);
           }
+          
+          if (repoConfig.plasmaRpcUrl) settings.plasmaRpcUrl = repoConfig.plasmaRpcUrl;
+          if (repoConfig.plasmaAssetAddress) settings.plasmaAssetAddress = repoConfig.plasmaAssetAddress;
+          if (repoConfig.plasmaPoolAddress) settings.plasmaPoolAddress = repoConfig.plasmaPoolAddress;
+          if (repoConfig.plasmaDataProviderAddress) settings.plasmaDataProviderAddress = repoConfig.plasmaDataProviderAddress;
+
           if (repoConfig.rpcUrl) settings.rpcUrl = repoConfig.rpcUrl;
           if (repoConfig.assetAddress) settings.assetAddress = repoConfig.assetAddress;
           if (repoConfig.poolAddress) settings.poolAddress = repoConfig.poolAddress;
@@ -125,7 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('utilizationThreshold').value = settings.utilizationThreshold;
       document.getElementById('checkIntervalMinutes').value = settings.checkIntervalMinutes;
       settings.morphoUtilizationThreshold = settings.utilizationThreshold;
-      
+
+      // Plasma inputs
+      if (document.getElementById('plasmaRpcUrl')) document.getElementById('plasmaRpcUrl').value = settings.plasmaRpcUrl;
+      if (document.getElementById('plasmaAssetAddress')) document.getElementById('plasmaAssetAddress').value = settings.plasmaAssetAddress;
+      if (document.getElementById('plasmaPoolAddress')) document.getElementById('plasmaPoolAddress').value = settings.plasmaPoolAddress;
+      if (document.getElementById('plasmaDataProviderAddress')) document.getElementById('plasmaDataProviderAddress').value = settings.plasmaDataProviderAddress;
+
+      // Ethereum inputs
       document.getElementById('rpcUrl').value = settings.rpcUrl;
       document.getElementById('assetAddress').value = settings.assetAddress;
       document.getElementById('poolAddress').value = settings.poolAddress;
@@ -171,6 +193,10 @@ document.addEventListener('DOMContentLoaded', () => {
       utilizationThreshold: thresholdVal,
       morphoUtilizationThreshold: thresholdVal,
       checkIntervalMinutes: parseFloat(newSettings.checkIntervalMinutes),
+      plasmaRpcUrl: newSettings.plasmaRpcUrl || existingContent.plasmaRpcUrl || 'https://rpc.plasma.to',
+      plasmaAssetAddress: newSettings.plasmaAssetAddress || existingContent.plasmaAssetAddress || '0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb',
+      plasmaPoolAddress: newSettings.plasmaPoolAddress || existingContent.plasmaPoolAddress || '0x925a2A7214Ed92428B5b1B090F80b25700095e12',
+      plasmaDataProviderAddress: newSettings.plasmaDataProviderAddress || existingContent.plasmaDataProviderAddress || '0xf2D6E38B407e31E7E7e4a16E6769728b76c7419F',
       rpcUrl: newSettings.rpcUrl || existingContent.rpcUrl || 'https://ethereum-rpc.publicnode.com',
       assetAddress: newSettings.assetAddress || existingContent.assetAddress || '0xdAC17F958D2ee523a2206206994597C13D831ec7',
       poolAddress: newSettings.poolAddress || existingContent.poolAddress || '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
@@ -264,6 +290,10 @@ document.addEventListener('DOMContentLoaded', () => {
       })
     });
     
+    if (!res.ok) {
+      throw new Error(`RPC HTTP Error: ${res.status}`);
+    }
+    
     const payload = await res.json();
     if (payload.error) {
       throw new Error(`RPC Reverted: ${payload.error.message}`);
@@ -271,13 +301,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return payload.result;
   }
 
-  // Query Aave V3.5 data directly from the client browser
-  async function fetchAaveData() {
-    const paddedAsset = settings.assetAddress.replace('0x', '').toLowerCase().padStart(64, '0');
+  // Generic Aave V3 Reserve Fetcher
+  async function fetchAaveDataGeneric(rpcUrl, assetAddress, dataProviderAddress, poolAddress) {
+    const paddedAsset = assetAddress.replace('0x', '').toLowerCase().padStart(64, '0');
     const getReserveDataSelector = '0x35ea6a75' + paddedAsset;
 
     // 1. Fetch from Data Provider
-    const providerResult = await ethCall(settings.rpcUrl, settings.dataProviderAddress, getReserveDataSelector);
+    const providerResult = await ethCall(rpcUrl, dataProviderAddress, getReserveDataSelector);
     const providerHex = providerResult.replace('0x', '');
     const providerChunks = [];
     for (let i = 0; i < providerHex.length; i += 64) {
@@ -293,7 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const liquidityRate = providerChunks[5];
 
     // 2. Fetch from Pool Configuration Map
-    const poolResult = await ethCall(settings.rpcUrl, settings.poolAddress, getReserveDataSelector);
+    const poolResult = await ethCall(rpcUrl, poolAddress, getReserveDataSelector);
     const poolHex = poolResult.replace('0x', '');
     const configHex = poolHex.slice(0, 64);
     const configVal = BigInt('0x' + configHex);
@@ -325,6 +355,24 @@ document.addEventListener('DOMContentLoaded', () => {
       totalBorrow,
       borrowCap: borrowCapBase
     };
+  }
+
+  async function fetchPlasmaData() {
+    return await fetchAaveDataGeneric(
+      settings.plasmaRpcUrl,
+      settings.plasmaAssetAddress,
+      settings.plasmaDataProviderAddress,
+      settings.plasmaPoolAddress
+    );
+  }
+
+  async function fetchAaveData() {
+    return await fetchAaveDataGeneric(
+      settings.rpcUrl,
+      settings.assetAddress,
+      settings.dataProviderAddress,
+      settings.poolAddress
+    );
   }
 
   // Query Morpho Vault allocations from Morpho GraphQL API
@@ -457,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return formatM(val);
   }
 
-  // Update Aave and Morpho UI metrics in parallel
+  // Update Plasma, Ethereum, and Morpho UI metrics in parallel
   async function refreshAllMetrics() {
     const lblStatus = document.getElementById('lbl-status');
     const statusIndicator = document.getElementById('status-indicator');
@@ -465,14 +513,52 @@ document.addEventListener('DOMContentLoaded', () => {
     lblStatus.textContent = 'Updating...';
     lblStatus.style.color = 'var(--text-secondary)';
 
-    let aaveError = null;
+    let plasmaError = null;
+    let ethError = null;
     let morphoError = null;
 
-    // 1. Fetch & Render Aave
+    // 1. Fetch & Render Aave Plasma
+    try {
+      const data = await fetchPlasmaData();
+      if (document.getElementById('val-plasma-net-apy')) {
+        document.getElementById('val-plasma-net-apy').textContent = data.netApy.toFixed(2) + '%';
+      }
+      if (document.getElementById('val-plasma-utilization')) {
+        document.getElementById('val-plasma-utilization').textContent = data.utilization.toFixed(2) + '%';
+      }
+
+      const gauge = document.getElementById('util-plasma-gauge');
+      const strokeDasharray = 238.76;
+      const offset = strokeDasharray - (strokeDasharray * Math.min(100, data.utilization) / 100);
+      if (gauge) {
+        gauge.style.strokeDashoffset = offset;
+        if (data.utilization >= settings.utilizationThreshold) {
+          gauge.classList.add('warning');
+        } else {
+          gauge.classList.remove('warning');
+        }
+      }
+
+      if (document.getElementById('val-plasma-total-supply')) {
+        document.getElementById('val-plasma-total-supply').textContent = formatM(data.totalSupply);
+      }
+      if (document.getElementById('val-plasma-total-borrow')) {
+        document.getElementById('val-plasma-total-borrow').textContent = formatM(data.totalBorrow);
+      }
+    } catch (err) {
+      console.error("Aave Plasma error:", err);
+      plasmaError = err.message;
+    }
+
+    // 2. Fetch & Render Aave Ethereum
     try {
       const data = await fetchAaveData();
-      document.getElementById('val-net-apy').textContent = data.netApy.toFixed(2) + '%';
-      document.getElementById('val-utilization').textContent = data.utilization.toFixed(2) + '%';
+      if (document.getElementById('val-net-apy')) {
+        document.getElementById('val-net-apy').textContent = data.netApy.toFixed(2) + '%';
+      }
+      if (document.getElementById('val-utilization')) {
+        document.getElementById('val-utilization').textContent = data.utilization.toFixed(2) + '%';
+      }
 
       const gauge = document.getElementById('util-gauge');
       const strokeDasharray = 238.76;
@@ -486,94 +572,105 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      document.getElementById('val-total-supply').textContent = formatM(data.totalSupply);
-      document.getElementById('val-total-borrow').textContent = formatM(data.totalBorrow);
+      if (document.getElementById('val-total-supply')) {
+        document.getElementById('val-total-supply').textContent = formatM(data.totalSupply);
+      }
+      if (document.getElementById('val-total-borrow')) {
+        document.getElementById('val-total-borrow').textContent = formatM(data.totalBorrow);
+      }
     } catch (err) {
-      console.error("Aave error:", err);
-      aaveError = err.message;
+      console.error("Aave Ethereum error:", err);
+      ethError = err.message;
     }
 
-    // 2. Fetch & Render Morpho
+    // 3. Fetch & Render Morpho
     try {
       const data = await fetchMorphoData();
-      document.getElementById('morpho-net-apy').textContent = data.netApy.toFixed(2) + '%';
-      document.getElementById('morpho-total-assets').textContent = formatM(data.totalAssets);
+      if (document.getElementById('morpho-net-apy')) {
+        document.getElementById('morpho-net-apy').textContent = data.netApy.toFixed(2) + '%';
+      }
+      if (document.getElementById('morpho-total-assets')) {
+        document.getElementById('morpho-total-assets').textContent = formatM(data.totalAssets);
+      }
       
       const listContainer = document.getElementById('morpho-allocations-list');
-      listContainer.innerHTML = ''; // Clear loading
-      
-      if (data.allocations.length === 0) {
-        listContainer.innerHTML = '<div class="alloc-empty">No active allocations</div>';
-      } else {
-        const CHAIN_NAMES = {
-          1: 'ethereum',
-          8453: 'base',
-          137: 'polygon'
-        };
-        const chainName = CHAIN_NAMES[parseInt(settings.morphoChainId)] || 'base';
+      if (listContainer) {
+        listContainer.innerHTML = '';
+        
+        if (data.allocations.length === 0) {
+          listContainer.innerHTML = '<div class="alloc-empty">No active allocations</div>';
+        } else {
+          const CHAIN_NAMES = {
+            1: 'ethereum',
+            8453: 'base',
+            137: 'polygon'
+          };
+          const chainName = CHAIN_NAMES[parseInt(settings.morphoChainId)] || 'base';
 
-        // Sort allocations by supplyAssets descending
-        data.allocations.sort((a, b) => b.supplyAssets - a.supplyAssets);
+          // Sort allocations by supplyAssets descending
+          data.allocations.sort((a, b) => b.supplyAssets - a.supplyAssets);
 
-        data.allocations.forEach((alloc, index) => {
-          const isBreached = alloc.collateralSymbol !== 'USDC (Idle)' && alloc.marketUtilization >= settings.morphoUtilizationThreshold;
-          
-          const item = document.createElement('div');
-          let rowClass = 'allocation-row';
-          if (isBreached) rowClass += ' error';
-          if (index === 0) rowClass += ' largest';
-          item.className = rowClass;
-          
-          // Display Name and Allocation size
-          const label = document.createElement('div');
-          label.className = 'allocation-label';
-          const symbolClass = alloc.collateralSymbol.toLowerCase().replace(/[^a-z0-9]/g, '');
-          
-          let linkHTML = '';
-          if (alloc.marketId) {
-            linkHTML = ` <a href="https://app.morpho.org/${chainName}/market/${alloc.marketId}" target="_blank" class="market-link" title="View Market on Morpho">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-            </a>`;
-          }
-          label.innerHTML = `<div><span class="token-badge ${symbolClass}">${alloc.collateralSymbol}</span>${linkHTML}</div> <span class="alloc-size">${formatM(alloc.supplyAssets)}</span>`;
-          
-          // Display Details in exact order: APY, Utilization, Supply, Borrow
-          const details = document.createElement('div');
-          details.className = 'allocation-details';
-          
-          const badgeClass = isBreached ? 'util-badge high' : 'util-badge';
-          
-          details.innerHTML = `
-            <span>APY: ${alloc.marketSupplyApy.toFixed(2)}%</span>
-            <span class="${badgeClass}">Util: ${alloc.marketUtilization.toFixed(1)}%</span>
-            <span>Supply: ${formatM(alloc.marketSupply)}</span>
-            <span>Borrow: ${formatM(alloc.marketBorrow)}</span>
-          `;
-          
-          item.appendChild(label);
-          item.appendChild(details);
-          listContainer.appendChild(item);
-        });
+          data.allocations.forEach((alloc, index) => {
+            const isBreached = alloc.collateralSymbol !== 'USDC (Idle)' && alloc.marketUtilization >= settings.morphoUtilizationThreshold;
+            
+            const item = document.createElement('div');
+            let rowClass = 'allocation-row';
+            if (isBreached) rowClass += ' error';
+            if (index === 0) rowClass += ' largest';
+            item.className = rowClass;
+            
+            // Display Name and Allocation size
+            const label = document.createElement('div');
+            label.className = 'allocation-label';
+            const symbolClass = alloc.collateralSymbol.toLowerCase().replace(/[^a-z0-9]/g, '');
+            
+            let linkHTML = '';
+            if (alloc.marketId) {
+              const marketUrl = `https://app.morpho.org/${chainName}/market/${alloc.marketId}`;
+              linkHTML = `
+                <a href="${marketUrl}" target="_blank" class="alloc-link-btn" title="Open ${alloc.collateralSymbol} Market on Morpho">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                </a>
+              `;
+            }
+
+            label.innerHTML = `
+              <span class="token-badge token-${symbolClass}">${alloc.collateralSymbol}</span>
+              ${linkHTML}
+              <span class="alloc-size">${formatM(alloc.supplyAssets)}</span>
+            `;
+            
+            // Utilization Value
+            const val = document.createElement('span');
+            val.className = 'allocation-util';
+            if (alloc.collateralSymbol === 'USDC (Idle)') {
+              val.textContent = 'Idle';
+              val.style.color = 'var(--text-muted)';
+            } else {
+              val.textContent = `${alloc.marketUtilization.toFixed(1)}%`;
+            }
+
+            item.appendChild(label);
+            item.appendChild(val);
+            listContainer.appendChild(item);
+          });
+        }
       }
     } catch (err) {
       console.error("Morpho error:", err);
       morphoError = err.message;
-      document.getElementById('morpho-allocations-list').innerHTML = `<div class="alloc-error">Error: ${err.message}</div>`;
     }
 
-    // 3. Update Status indicators
-    if (!aaveError && !morphoError) {
-      lblStatus.textContent = 'Active (Connected to both chains)';
-      lblStatus.style.color = 'var(--accent-green)';
-      statusIndicator.className = 'status-dot';
-    } else {
-      let errStr = [];
-      if (aaveError) errStr.push(`Aave: ${aaveError}`);
-      if (morphoError) errStr.push(`Morpho: ${morphoError}`);
-      
-      lblStatus.textContent = 'Error - ' + errStr.join(' | ');
-      lblStatus.style.color = 'var(--accent-red)';
+    // Status footer update
+    const errors = [plasmaError, ethError, morphoError].filter(Boolean);
+    if (errors.length > 0) {
       statusIndicator.className = 'status-dot error';
+      lblStatus.textContent = errors.length === 3 ? 'Offline' : 'Partial Error';
+      lblStatus.style.color = 'var(--accent-red)';
+    } else {
+      statusIndicator.className = 'status-dot';
+      lblStatus.textContent = 'ONLINE';
+      lblStatus.style.color = 'var(--accent-green)';
     }
 
     lastUpdateTime = new Date();
@@ -598,91 +695,131 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Aave Test Trigger
-  testAlertBtn.addEventListener('click', async () => {
-    const token = document.getElementById('telegramBotToken').value;
-    const chatId = document.getElementById('telegramChatId').value;
-    
-    if (!token || !chatId) {
-      showToast('Please fill out the Telegram Bot Token and Chat ID to run a test.', 'error');
-      return;
-    }
-
-    testAlertBtn.disabled = true;
-    const originalText = testAlertBtn.innerHTML;
-    testAlertBtn.innerHTML = 'Sending...';
-
-    try {
-      const data = await fetchAaveData();
-      const message = `🔔 *[TEST MESSAGE]* Aave Ethereum Pool Alert\n` + 
-                      `Asset: *USDT*\n\n` +
-                      `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
-                      `• *Utilization:* ${data.utilization.toFixed(2)}%\n` +
-                      `• *Total Supply:* ${formatM(data.totalSupply)}\n` +
-                      `• *Total Borrow:* ${formatM(data.totalBorrow)}`;
-
-      await dispatchTelegramTest(token, chatId, message);
-      showToast('Test alert sent to Telegram successfully!');
-      document.getElementById('lbl-last-alert').textContent = new Date().toLocaleTimeString();
-    } catch (err) {
-      showToast('Test alert failed: ' + err.message, 'error');
-    } finally {
-      testAlertBtn.disabled = false;
-      testAlertBtn.innerHTML = originalText;
-    }
-  });
-
-  // Morpho Test Trigger
-  testMorphoBtn.addEventListener('click', async () => {
-    const token = document.getElementById('telegramBotToken').value;
-    const chatId = document.getElementById('telegramChatId').value;
-    
-    if (!token || !chatId) {
-      showToast('Please fill out the Telegram Bot Token and Chat ID to run a test.', 'error');
-      return;
-    }
-
-    testMorphoBtn.disabled = true;
-    const originalText = testMorphoBtn.innerHTML;
-    testMorphoBtn.innerHTML = 'Sending...';
-
-    try {
-      const data = await fetchMorphoData();
+  // Plasma Test Trigger
+  if (testPlasmaBtn) {
+    testPlasmaBtn.addEventListener('click', async () => {
+      const token = document.getElementById('telegramBotToken').value;
+      const chatId = document.getElementById('telegramChatId').value;
       
-      const threshold = parseFloat(document.getElementById('utilizationThreshold').value || settings.utilizationThreshold || '94.0');
-      
-      let primaryAlloc = null;
-      data.allocations.forEach(alloc => {
-        if (alloc.collateralSymbol === 'USDC (Idle)') return;
-        if (!primaryAlloc || alloc.supplyAssets > primaryAlloc.supplyAssets) {
-          primaryAlloc = alloc;
-        }
-      });
-
-      const isBreached = primaryAlloc && primaryAlloc.marketUtilization >= threshold;
-
-      let message = `🔔 *[TEST MESSAGE]* Morpho Base Vault Status\n` + 
-                    `Vault: *${data.name} (${data.symbol})*\n` +
-                    `Total Assets: *${formatM(data.totalAssets)}*\n` +
-                    `Vault APY: *${data.netApy.toFixed(2)}%*\n\n`;
-
-      if (primaryAlloc) {
-        message += `📍 *Largest Allocation Market:* ${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}\n` +
-                   `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (🔥 BREACHED)' : ''}`;
-      } else {
-        message += `⚠️ No active allocation markets found.`;
+      if (!token || !chatId) {
+        showToast('Please fill out the Telegram Bot Token and Chat ID to run a test.', 'error');
+        return;
       }
 
-      await dispatchTelegramTest(token, chatId, message);
-      showToast('Test alert sent to Telegram successfully!');
-      document.getElementById('lbl-last-alert').textContent = new Date().toLocaleTimeString();
-    } catch (err) {
-      showToast('Test alert failed: ' + err.message, 'error');
-    } finally {
-      testMorphoBtn.disabled = false;
-      testMorphoBtn.innerHTML = originalText;
-    }
-  });
+      testPlasmaBtn.disabled = true;
+      const originalText = testPlasmaBtn.innerHTML;
+      testPlasmaBtn.innerHTML = 'Sending...';
+
+      try {
+        const data = await fetchPlasmaData();
+        const message = `🔔 *[TEST MESSAGE]* Aave Plasma Pool Alert\n` + 
+                        `Asset: *USDT0*\n\n` +
+                        `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
+                        `• *Utilization:* ${data.utilization.toFixed(2)}%\n` +
+                        `• *Total Supply:* ${formatM(data.totalSupply)}\n` +
+                        `• *Total Borrow:* ${formatM(data.totalBorrow)}`;
+
+        await dispatchTelegramTest(token, chatId, message);
+        showToast('Plasma test alert sent to Telegram successfully!');
+        document.getElementById('lbl-last-alert').textContent = new Date().toLocaleTimeString();
+      } catch (err) {
+        showToast('Plasma test failed: ' + err.message, 'error');
+      } finally {
+        testPlasmaBtn.disabled = false;
+        testPlasmaBtn.innerHTML = originalText;
+      }
+    });
+  }
+
+  // Ethereum Test Trigger
+  if (testAlertBtn) {
+    testAlertBtn.addEventListener('click', async () => {
+      const token = document.getElementById('telegramBotToken').value;
+      const chatId = document.getElementById('telegramChatId').value;
+      
+      if (!token || !chatId) {
+        showToast('Please fill out the Telegram Bot Token and Chat ID to run a test.', 'error');
+        return;
+      }
+
+      testAlertBtn.disabled = true;
+      const originalText = testAlertBtn.innerHTML;
+      testAlertBtn.innerHTML = 'Sending...';
+
+      try {
+        const data = await fetchAaveData();
+        const message = `🔔 *[TEST MESSAGE]* Aave Ethereum Pool Alert\n` + 
+                        `Asset: *USDT*\n\n` +
+                        `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
+                        `• *Utilization:* ${data.utilization.toFixed(2)}%\n` +
+                        `• *Total Supply:* ${formatM(data.totalSupply)}\n` +
+                        `• *Total Borrow:* ${formatM(data.totalBorrow)}`;
+
+        await dispatchTelegramTest(token, chatId, message);
+        showToast('Ethereum test alert sent to Telegram successfully!');
+        document.getElementById('lbl-last-alert').textContent = new Date().toLocaleTimeString();
+      } catch (err) {
+        showToast('Ethereum test failed: ' + err.message, 'error');
+      } finally {
+        testAlertBtn.disabled = false;
+        testAlertBtn.innerHTML = originalText;
+      }
+    });
+  }
+
+  // Morpho Test Trigger
+  if (testMorphoBtn) {
+    testMorphoBtn.addEventListener('click', async () => {
+      const token = document.getElementById('telegramBotToken').value;
+      const chatId = document.getElementById('telegramChatId').value;
+      
+      if (!token || !chatId) {
+        showToast('Please fill out the Telegram Bot Token and Chat ID to run a test.', 'error');
+        return;
+      }
+
+      testMorphoBtn.disabled = true;
+      const originalText = testMorphoBtn.innerHTML;
+      testMorphoBtn.innerHTML = 'Sending...';
+
+      try {
+        const data = await fetchMorphoData();
+        
+        const threshold = parseFloat(document.getElementById('utilizationThreshold').value || settings.utilizationThreshold || '94.0');
+        
+        let primaryAlloc = null;
+        data.allocations.forEach(alloc => {
+          if (alloc.collateralSymbol === 'USDC (Idle)') return;
+          if (!primaryAlloc || alloc.supplyAssets > primaryAlloc.supplyAssets) {
+            primaryAlloc = alloc;
+          }
+        });
+
+        const isBreached = primaryAlloc && primaryAlloc.marketUtilization >= threshold;
+
+        let message = `🔔 *[TEST MESSAGE]* Morpho Base Vault Status\n` + 
+                      `Vault: *${data.name} (${data.symbol})*\n` +
+                      `Total Assets: *${formatM(data.totalAssets)}*\n` +
+                      `Vault APY: *${data.netApy.toFixed(2)}%*\n\n`;
+
+        if (primaryAlloc) {
+          message += `📍 *Largest Allocation Market:* ${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}\n` +
+                     `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (🔥 BREACHED)' : ''}`;
+        } else {
+          message += `⚠️ No active allocation markets found.`;
+        }
+
+        await dispatchTelegramTest(token, chatId, message);
+        showToast('Morpho test alert sent to Telegram successfully!');
+        document.getElementById('lbl-last-alert').textContent = new Date().toLocaleTimeString();
+      } catch (err) {
+        showToast('Morpho test alert failed: ' + err.message, 'error');
+      } finally {
+        testMorphoBtn.disabled = false;
+        testMorphoBtn.innerHTML = originalText;
+      }
+    });
+  }
 
   // Initial load
   loadConfig().finally(() => {

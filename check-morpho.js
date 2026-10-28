@@ -244,9 +244,9 @@ function formatComparison(currentVal, pastVal, unit = '%') {
   const absFormatted = Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + unit;
   
   if (diff > 0) {
-    return ` (+${absFormatted}) 🟢`;
+    return ` (+${absFormatted})`;
   } else if (diff < 0) {
-    return ` (-${absFormatted}) 🔴`;
+    return ` (-${absFormatted})`;
   } else {
     return ` (0.00${unit})`;
   }
@@ -304,11 +304,11 @@ async function sendTelegramAlert(data, primaryAlloc, isBreached) {
   let message = `${prefix}\n` + 
                 `Vault: *${data.name} (${data.symbol})*\n` +
                 `Total Vault Assets: *${assetsStr}*\n` +
-                `Vault Net APY: *${vaultApyStr}*\n\n`;
+                `Vault Net APY: *${vaultApyStr}* 💰💰\n\n`;
 
   if (primaryAlloc) {
     message += `📍 *Largest Allocation Market:* ${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}\n` +
-               `• *Utilization:* ${utilStr}${isBreached ? ' (🔥 BREACHED)' : ''}`;
+               `• *Utilization:* ${utilStr}${isBreached ? ' (🔥 BREACHED)' : ''} 📈📈`;
   } else {
     message += `⚠️ No active allocation markets found.`;
   }

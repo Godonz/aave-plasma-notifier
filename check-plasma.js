@@ -105,9 +105,9 @@ function formatComparison(currentVal, pastVal, unit = '%') {
   const absFormatted = Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + unit;
   
   if (diff > 0) {
-    return ` (+${absFormatted}) 🟢`;
+    return ` (+${absFormatted})`;
   } else if (diff < 0) {
-    return ` (-${absFormatted}) 🔴`;
+    return ` (-${absFormatted})`;
   } else {
     return ` (0.00${unit})`;
   }
@@ -271,8 +271,8 @@ async function sendTelegramAlert(data) {
 
   const message = `${prefix}\n` + 
                   `Asset: *USDT0*\n\n` +
-                  `• *Net APY:* ${netApyStr}\n` +
-                  `• *Utilization:* ${utilizationStr}\n` +
+                  `• *Net APY:* ${netApyStr} 💰💰\n` +
+                  `• *Utilization:* ${utilizationStr} 📈📈\n` +
                   `• *Total Supply:* ${supplyStr}\n` +
                   `• *Total Borrow:* ${borrowStr}`;
 

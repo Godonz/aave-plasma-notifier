@@ -714,8 +714,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await fetchPlasmaData();
         const message = `🔔 *[TEST MESSAGE]* Aave Plasma Pool Alert\n` + 
                         `Asset: *USDT0*\n\n` +
-                        `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
-                        `• *Utilization:* ${data.utilization.toFixed(2)}%\n` +
+                        `• *Net APY:* ${data.netApy.toFixed(2)}% 💰💰\n` +
+                        `• *Utilization:* ${data.utilization.toFixed(2)}% 📈📈\n` +
                         `• *Total Supply:* ${formatM(data.totalSupply)}\n` +
                         `• *Total Borrow:* ${formatM(data.totalBorrow)}`;
 
@@ -750,8 +750,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await fetchAaveData();
         const message = `🔔 *[TEST MESSAGE]* Aave Ethereum Pool Alert\n` + 
                         `Asset: *USDT*\n\n` +
-                        `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
-                        `• *Utilization:* ${data.utilization.toFixed(2)}%\n` +
+                        `• *Net APY:* ${data.netApy.toFixed(2)}% 💰💰\n` +
+                        `• *Utilization:* ${data.utilization.toFixed(2)}% 📈📈\n` +
                         `• *Total Supply:* ${formatM(data.totalSupply)}\n` +
                         `• *Total Borrow:* ${formatM(data.totalBorrow)}`;
 
@@ -800,11 +800,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let message = `🔔 *[TEST MESSAGE]* Morpho Base Vault Status\n` + 
                       `Vault: *${data.name} (${data.symbol})*\n` +
                       `Total Assets: *${formatM(data.totalAssets)}*\n` +
-                      `Vault APY: *${data.netApy.toFixed(2)}%*\n\n`;
+                      `Vault APY: *${data.netApy.toFixed(2)}%* 💰💰\n\n`;
 
         if (primaryAlloc) {
           message += `📍 *Largest Allocation Market:* ${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}\n` +
-                     `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (🔥 BREACHED)' : ''}`;
+                     `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (🔥 BREACHED)' : ''} 📈📈`;
         } else {
           message += `⚠️ No active allocation markets found.`;
         }

@@ -1,6 +1,6 @@
 {
-  "utilizationThreshold": 94,
-  "morphoUtilizationThreshold": 94,
+  "utilizationThreshold": 95,
+  "morphoUtilizationThreshold": 95,
   "checkIntervalMinutes": 40,
   "plasmaRpcUrl": "https://rpc.plasma.to",
   "plasmaAssetAddress": "0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb",

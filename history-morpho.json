@@ -436,5 +436,11 @@
     "vaultApy": 4.51,
     "totalAssetsM": 396.13,
     "utilization": 86.29
+  },
+  {
+    "date": "2026-11-18",
+    "vaultApy": 4.5,
+    "totalAssetsM": 396.62,
+    "utilization": 86.56
   }
 ]

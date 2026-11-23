@@ -1247,11 +1247,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         const data = await fetchPlasmaData();
-        const message = `🔔 *[TEST MESSAGE]*\n` +
+        const message = `*[TEST MESSAGE]*\n` +
                         `Aave Plasma Pool Alert\n` +
                         `• *Total Supply:* ${formatM(data.totalSupply)}\n` +
-                        `• *Net APY:* ${data.netApy.toFixed(2)}% 💰💰\n` +
-                        `• *Utilization:* ${data.utilization.toFixed(2)}% 📈📈`;
+                        `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
+                        `• *Utilization:* ${data.utilization.toFixed(2)}%`;
 
         await dispatchTelegramTest(token, chatId, message);
         showToast('Plasma test alert sent to Telegram successfully!');
@@ -1282,11 +1282,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         const data = await fetchAaveData();
-        const message = `🔔 *[TEST MESSAGE]*\n` +
+        const message = `*[TEST MESSAGE]*\n` +
                         `Aave Ethereum Pool Alert\n` +
                         `• *Total Supply:* ${formatM(data.totalSupply)}\n` +
-                        `• *Net APY:* ${data.netApy.toFixed(2)}% 💰💰\n` +
-                        `• *Utilization:* ${data.utilization.toFixed(2)}% 📈📈`;
+                        `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
+                        `• *Utilization:* ${data.utilization.toFixed(2)}%`;
 
         await dispatchTelegramTest(token, chatId, message);
         showToast('Ethereum test alert sent to Telegram successfully!');
@@ -1330,16 +1330,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const isBreached = primaryAlloc && primaryAlloc.marketUtilization >= threshold;
 
-        let message = `🔔 *[TEST MESSAGE]* Morpho Base Vault Status\n` + 
+        let message = `*[TEST MESSAGE]* Morpho Base Vault Status\n` + 
                       `Vault: *${data.name} (${data.symbol})*\n` +
                       `Total Assets: *${formatM(data.totalAssets)}*\n` +
-                      `Vault APY: *${data.netApy.toFixed(2)}%* 💰💰\n\n`;
+                      `Vault APY: *${data.netApy.toFixed(2)}%*\n\n`;
 
         if (primaryAlloc) {
-          message += `📍 *Largest Allocation Market:* ${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}\n` +
-                     `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (🔥 BREACHED)' : ''} 📈📈`;
+          message += `*Largest Allocation Market:* ${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}\n` +
+                     `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (BREACHED)' : ''}`;
         } else {
-          message += `⚠️ No active allocation markets found.`;
+          message += `No active allocation markets found.`;
         }
 
         await dispatchTelegramTest(token, chatId, message);

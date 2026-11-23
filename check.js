@@ -295,7 +295,7 @@ async function sendTelegramAlert(data) {
     ? "*[DAILY STATUS]*\nAave Ethereum Pool Status"
     : "*[UTILIZATION ALERT]*\nAave Ethereum Pool Alert";
 
-  const message = `${prefix}\n` +
+  const message = `${prefix}\n\n` +
                   `• *Total Supply:* ${supplyStr}\n` +
                   `• *Net APY:* ${netApyStr}\n` +
                   `• *Utilization:* ${utilizationStr}`;

@@ -1330,17 +1330,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const isBreached = primaryAlloc && primaryAlloc.marketUtilization >= threshold;
 
-        let message = `*[TEST MESSAGE]* Morpho Base Vault Status\n` + 
-                      `Vault: *${data.name} (${data.symbol})*\n` +
-                      `Total Assets: *${formatM(data.totalAssets)}*\n` +
-                      `Vault APY: *${data.netApy.toFixed(2)}%*\n\n`;
+        const utilLine = primaryAlloc
+          ? `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (BREACHED)' : ''}`
+          : `• *Utilization:* N/A`;
 
-        if (primaryAlloc) {
-          message += `*Largest Allocation Market:* ${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}\n` +
-                     `• *Utilization:* ${primaryAlloc.marketUtilization.toFixed(2)}%${isBreached ? ' (BREACHED)' : ''}`;
-        } else {
-          message += `No active allocation markets found.`;
-        }
+        const message = `*[TEST MESSAGE]*\n` +
+                        `Morpho Base Vault Status\n` +
+                        `*Vault:* ${data.name}\n\n` +
+                        `*Total Vault Assets:* ${formatM(data.totalAssets)}\n` +
+                        `*Vault Net APY:* ${data.netApy.toFixed(2)}%\n` +
+                        `${utilLine}`;
 
         await dispatchTelegramTest(token, chatId, message);
         showToast('Morpho test alert sent to Telegram successfully!');

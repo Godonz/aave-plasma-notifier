@@ -27,9 +27,15 @@ jobs:
         SEND_ALWAYS: 'true' # Force notification regardless of threshold
       run: node check-plasma.js
 
+    - name: Record Daily Ethereum History (Silent)
+      continue-on-error: true
+      env:
+        RECORD_HISTORY_ONLY: 'true'
+      run: node check.js
+
     - name: Commit & Push Daily History
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git add history-plasma.json
-        git diff --quiet && git diff --staged --quiet || (git commit -m "update Aave Plasma daily history" && git push)
+        git add history-plasma.json history-aave.json
+        git diff --quiet && git diff --staged --quiet || (git commit -m "update Aave daily history" && git push)

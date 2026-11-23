@@ -15,6 +15,7 @@ try {
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const SEND_ALWAYS = process.env.SEND_ALWAYS === 'true';
+const RECORD_HISTORY_ONLY = process.env.RECORD_HISTORY_ONLY === 'true';
 
 const UTILIZATION_THRESHOLD = parseFloat(
   config.utilizationThreshold !== undefined ? config.utilizationThreshold : (process.env.UTILIZATION_THRESHOLD || '94.0')
@@ -231,6 +232,31 @@ function formatComparison(currentVal, pastVal, unit = '%') {
   }
 }
 
+function recordHistoryEntry(data, history = loadHistory()) {
+  const curNetApy = data.netApy;
+  const curUtil = data.utilization;
+  const curSupply = data.totalSupply / 1e6;
+  const curBorrow = data.totalBorrow / 1e6;
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const existingIndex = history.findIndex(h => h.date === todayStr);
+  const todayRecord = {
+    date: todayStr,
+    netApy: Number(curNetApy.toFixed(2)),
+    utilization: Number(curUtil.toFixed(2)),
+    totalSupplyM: Number(curSupply.toFixed(2)),
+    totalBorrowM: Number(curBorrow.toFixed(2))
+  };
+
+  if (existingIndex >= 0) {
+    history[existingIndex] = todayRecord;
+  } else {
+    history.push(todayRecord);
+  }
+  saveHistory(history);
+  return history;
+}
+
 // Send telegram alert
 async function sendTelegramAlert(data) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
@@ -262,22 +288,7 @@ async function sendTelegramAlert(data) {
     supplyStr += `${diffSupply1}`;
     borrowStr += `${diffBorrow1}`;
 
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const existingIndex = history.findIndex(h => h.date === todayStr);
-    const todayRecord = {
-      date: todayStr,
-      netApy: Number(curNetApy.toFixed(2)),
-      utilization: Number(curUtil.toFixed(2)),
-      totalSupplyM: Number(curSupply.toFixed(2)),
-      totalBorrowM: Number(curBorrow.toFixed(2))
-    };
-
-    if (existingIndex >= 0) {
-      history[existingIndex] = todayRecord;
-    } else {
-      history.push(todayRecord);
-    }
-    saveHistory(history);
+    recordHistoryEntry(data, history);
   }
 
   const prefix = SEND_ALWAYS ? "ℹ️ *[DAILY STATUS]* Aave Ethereum Pool Status" : "🚨 *[UTILIZATION ALERT]* Aave Ethereum Pool Alert";
@@ -317,6 +328,12 @@ async function run() {
     console.log(`Net APY: ${data.netApy.toFixed(2)}%`);
     console.log(`Total Supply: ${formatMillions(data.totalSupply)} / ${formatCap(data.supplyCap)}`);
     console.log(`Total Borrow: ${formatMillions(data.totalBorrow)} / ${formatCap(data.borrowCap)}`);
+
+    if (RECORD_HISTORY_ONLY) {
+      recordHistoryEntry(data);
+      console.log("Recorded daily history only (no Telegram notification sent).");
+      return;
+    }
 
     if (data.utilization >= UTILIZATION_THRESHOLD || SEND_ALWAYS) {
       if (!SEND_ALWAYS) {

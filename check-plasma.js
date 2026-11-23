@@ -268,13 +268,13 @@ async function sendTelegramAlert(data) {
   }
 
   const prefix = SEND_ALWAYS
-    ? "ℹ️ *[DAILY STATUS]*\nAave Plasma Pool Status"
-    : "🚨 *[UTILIZATION ALERT]*\nAave Plasma Pool Alert";
+    ? "*[DAILY STATUS]*\nAave Plasma Pool Status"
+    : "*[UTILIZATION ALERT]*\nAave Plasma Pool Alert";
 
   const message = `${prefix}\n` +
                   `• *Total Supply:* ${supplyStr}\n` +
-                  `• *Net APY:* ${netApyStr} 💰💰\n` +
-                  `• *Utilization:* ${utilizationStr} 📈📈`;
+                  `• *Net APY:* ${netApyStr}\n` +
+                  `• *Utilization:* ${utilizationStr}`;
 
   console.log("Sending Telegram Message:\n", message);
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DeFi Yield Notifier Console</title>
-  <link rel="stylesheet" href="style.css?v=20261123">
+  <link rel="stylesheet" href="style.css?v=20261123b">
 </head>
 <body>
   <!-- Cosmic Twinkling Stars Overlay -->
@@ -234,6 +234,13 @@
                   <span class="metric-sub">Borrowed Liquidity</span>
                 </div>
               </div>
+
+              <!-- Row 3: Total Supply History Chart -->
+              <div class="metric-row full-width">
+                <div class="metric-card chart-card" id="chart-card-plasma">
+                  <div class="chart-loading">Loading supply history...</div>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -292,6 +299,13 @@
                   <span class="metric-sub">Borrowed Liquidity</span>
                 </div>
               </div>
+
+              <!-- Row 3: Total Supply History Chart -->
+              <div class="metric-row full-width">
+                <div class="metric-card chart-card" id="chart-card-ethereum">
+                  <div class="chart-loading">Loading supply history...</div>
+                </div>
+              </div>
             </div>
           </section>
         </div>
@@ -329,7 +343,14 @@
               </div>
             </div>
 
-            <!-- Row 2: Allocated Markets list -->
+            <!-- Row 2: Total Assets History Chart -->
+            <div class="metric-row full-width">
+              <div class="metric-card chart-card" id="chart-card-morpho">
+                <div class="chart-loading">Loading AUM history...</div>
+              </div>
+            </div>
+
+            <!-- Row 3: Allocated Markets list -->
             <div class="metric-row full-width">
               <div class="metric-card allocations-card">
                 <span class="metric-label" id="morpho-alloc-header">Underlying Allocations & Utilization</span>
@@ -350,6 +371,6 @@
     <span id="toast-message">Notification details</span>
   </div>
 
-  <script src="app.js?v=20261123"></script>
+  <script src="app.js?v=20261123b"></script>
 </body>
 </html>

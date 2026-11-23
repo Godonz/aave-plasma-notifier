@@ -291,14 +291,14 @@ async function sendTelegramAlert(data) {
     recordHistoryEntry(data, history);
   }
 
-  const prefix = SEND_ALWAYS ? "ℹ️ *[DAILY STATUS]* Aave Ethereum Pool Status" : "🚨 *[UTILIZATION ALERT]* Aave Ethereum Pool Alert";
+  const prefix = SEND_ALWAYS
+    ? "ℹ️ *[DAILY STATUS]*\nAave Ethereum Pool Status"
+    : "🚨 *[UTILIZATION ALERT]*\nAave Ethereum Pool Alert";
 
-  const message = `${prefix}\n` + 
-                  `Asset: *USDT*\n\n` +
-                  `• *Net APY:* ${netApyStr} 💰💰\n` +
-                  `• *Utilization:* ${utilizationStr} 📈📈\n` +
+  const message = `${prefix}\n` +
                   `• *Total Supply:* ${supplyStr}\n` +
-                  `• *Total Borrow:* ${borrowStr}`;
+                  `• *Net APY:* ${netApyStr} 💰💰\n` +
+                  `• *Utilization:* ${utilizationStr} 📈📈`;
 
   console.log("Sending Telegram Message:\n", message);
 

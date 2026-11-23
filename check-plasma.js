@@ -271,7 +271,7 @@ async function sendTelegramAlert(data) {
     ? "*[DAILY STATUS]*\nAave Plasma Pool Status"
     : "*[UTILIZATION ALERT]*\nAave Plasma Pool Alert";
 
-  const message = `${prefix}\n` +
+  const message = `${prefix}\n\n` +
                   `• *Total Supply:* ${supplyStr}\n` +
                   `• *Net APY:* ${netApyStr}\n` +
                   `• *Utilization:* ${utilizationStr}`;

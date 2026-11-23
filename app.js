@@ -1247,12 +1247,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         const data = await fetchPlasmaData();
-        const message = `🔔 *[TEST MESSAGE]* Aave Plasma Pool Alert\n` + 
-                        `Asset: *USDT0*\n\n` +
-                        `• *Net APY:* ${data.netApy.toFixed(2)}% 💰💰\n` +
-                        `• *Utilization:* ${data.utilization.toFixed(2)}% 📈📈\n` +
+        const message = `🔔 *[TEST MESSAGE]*\n` +
+                        `Aave Plasma Pool Alert\n` +
                         `• *Total Supply:* ${formatM(data.totalSupply)}\n` +
-                        `• *Total Borrow:* ${formatM(data.totalBorrow)}`;
+                        `• *Net APY:* ${data.netApy.toFixed(2)}% 💰💰\n` +
+                        `• *Utilization:* ${data.utilization.toFixed(2)}% 📈📈`;
 
         await dispatchTelegramTest(token, chatId, message);
         showToast('Plasma test alert sent to Telegram successfully!');
@@ -1283,12 +1282,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         const data = await fetchAaveData();
-        const message = `🔔 *[TEST MESSAGE]* Aave Ethereum Pool Alert\n` + 
-                        `Asset: *USDT*\n\n` +
-                        `• *Net APY:* ${data.netApy.toFixed(2)}% 💰💰\n` +
-                        `• *Utilization:* ${data.utilization.toFixed(2)}% 📈📈\n` +
+        const message = `🔔 *[TEST MESSAGE]*\n` +
+                        `Aave Ethereum Pool Alert\n` +
                         `• *Total Supply:* ${formatM(data.totalSupply)}\n` +
-                        `• *Total Borrow:* ${formatM(data.totalBorrow)}`;
+                        `• *Net APY:* ${data.netApy.toFixed(2)}% 💰💰\n` +
+                        `• *Utilization:* ${data.utilization.toFixed(2)}% 📈📈`;
 
         await dispatchTelegramTest(token, chatId, message);
         showToast('Ethereum test alert sent to Telegram successfully!');

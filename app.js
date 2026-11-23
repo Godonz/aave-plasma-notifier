@@ -44,6 +44,49 @@ document.addEventListener('DOMContentLoaded', () => {
   let isMorphoAllocExpanded = false;
   let latestMorphoAllocations = null;
 
+  const POOL_CHART_CONFIG = {
+    plasma: {
+      cardId: 'chart-card-plasma',
+      historyFile: 'history-plasma.json',
+      valueField: 'totalSupplyM',
+      title: 'Total Supply',
+      color: '#c084fc',
+      dotClass: 'purple',
+      gradId: 'chart-grad-plasma'
+    },
+    ethereum: {
+      cardId: 'chart-card-ethereum',
+      historyFile: 'history-aave.json',
+      valueField: 'totalSupplyM',
+      title: 'Total Supply',
+      color: '#38bdf8',
+      dotClass: 'blue',
+      gradId: 'chart-grad-ethereum'
+    },
+    morpho: {
+      cardId: 'chart-card-morpho',
+      historyFile: 'history-morpho.json',
+      valueField: 'totalAssetsM',
+      title: 'Total Assets (AUM)',
+      color: '#34d399',
+      dotClass: 'green',
+      gradId: 'chart-grad-morpho'
+    }
+  };
+
+  const TIMEFRAME_DAYS = {
+    '1w': 7,
+    '1m': 30,
+    '6m': 180,
+    '1y': 365
+  };
+
+  const chartStates = {
+    plasma: { timeframe: '1m', history: [], liveM: null, lastRenderKey: '' },
+    ethereum: { timeframe: '1m', history: [], liveM: null, lastRenderKey: '' },
+    morpho: { timeframe: '1m', history: [], liveM: null, lastRenderKey: '' }
+  };
+
   // Protocol detection warning banner
   if (window.location.protocol === 'file:') {
     showToast('⚠️ Note: You are viewing this file locally. Settings will save in your local browser.', 'success');
@@ -685,6 +728,374 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function formatChartAxisVal(millions, span) {
+    if (millions >= 1000) {
+      const billions = millions / 1000;
+      const decimals = span < 300 ? 2 : 1;
+      return `${billions.toFixed(decimals)}B`;
+    }
+    const decimals = span < 12 ? 1 : 0;
+    return `${millions.toFixed(decimals)}M`;
+  }
+
+  function formatChartFullVal(millions) {
+    if (millions >= 1000) {
+      return `${(millions / 1000).toFixed(2)}B`;
+    }
+    return `${millions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`;
+  }
+
+  function formatChartDelta(diff, pct) {
+    const sign = diff > 0 ? '+' : diff < 0 ? '-' : '';
+    const absM = Math.abs(diff);
+    const valStr = absM >= 1000
+      ? `${(absM / 1000).toFixed(2)}B`
+      : `${absM.toFixed(1)}M`;
+    return `${sign}${valStr} (${sign}${Math.abs(pct).toFixed(1)}%)`;
+  }
+
+  function formatChartAxisDate(ms, tf) {
+    const d = new Date(ms);
+    if (tf === '1w') {
+      return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', timeZone: 'UTC' });
+    }
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  }
+
+  function formatChartTooltipDate(dateStr) {
+    const d = new Date(`${dateStr}T00:00:00Z`);
+    return d.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC'
+    });
+  }
+
+  // Fritsch-Carlson monotone cubic spline so the line is smooth without overshooting peaks/valleys
+  function buildMonotonePath(points) {
+    const n = points.length;
+    if (n === 0) return '';
+    if (n === 1) return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+    if (n === 2) {
+      return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)} L ${points[1].x.toFixed(1)} ${points[1].y.toFixed(1)}`;
+    }
+
+    const d = [];
+    for (let i = 0; i < n - 1; i++) {
+      const dx = points[i + 1].x - points[i].x;
+      d.push(dx > 0 ? (points[i + 1].y - points[i].y) / dx : 0);
+    }
+
+    const m = new Array(n).fill(0);
+    m[0] = d[0];
+    m[n - 1] = d[n - 2];
+    for (let i = 1; i < n - 1; i++) {
+      m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2;
+    }
+
+    for (let i = 0; i < n - 1; i++) {
+      if (d[i] === 0) {
+        m[i] = 0;
+        m[i + 1] = 0;
+      } else {
+        const a = m[i] / d[i];
+        const b = m[i + 1] / d[i];
+        const mag = a * a + b * b;
+        if (mag > 9) {
+          const tau = 3 / Math.sqrt(mag);
+          m[i] = tau * a * d[i];
+          m[i + 1] = tau * b * d[i];
+        }
+      }
+    }
+
+    let path = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+    for (let i = 0; i < n - 1; i++) {
+      const dx = (points[i + 1].x - points[i].x) / 3;
+      const c1x = points[i].x + dx;
+      const c1y = points[i].y + m[i] * dx;
+      const c2x = points[i + 1].x - dx;
+      const c2y = points[i + 1].y - m[i + 1] * dx;
+      path += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${points[i + 1].x.toFixed(1)} ${points[i + 1].y.toFixed(1)}`;
+    }
+    return path;
+  }
+
+  function getChartSeries(poolKey) {
+    const cfg = POOL_CHART_CONFIG[poolKey];
+    const state = chartStates[poolKey];
+    const byDate = new Map();
+
+    for (const entry of state.history) {
+      if (!entry || !entry.date) continue;
+      const val = Number(entry[cfg.valueField]);
+      if (!isNaN(val)) {
+        byDate.set(entry.date, val);
+      }
+    }
+
+    if (state.liveM !== null && !isNaN(state.liveM)) {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      byDate.set(todayStr, Number(state.liveM.toFixed(2)));
+    }
+
+    const allPoints = Array.from(byDate.entries())
+      .map(([date, val]) => ({
+        date,
+        ms: Date.parse(`${date}T00:00:00Z`),
+        val
+      }))
+      .sort((a, b) => a.ms - b.ms);
+
+    if (allPoints.length === 0) return [];
+
+    const days = TIMEFRAME_DAYS[state.timeframe] || 30;
+    const latestMs = allPoints[allPoints.length - 1].ms;
+    const cutoffMs = latestMs - (days - 1) * 86400000;
+    const filtered = allPoints.filter(p => p.ms >= cutoffMs);
+    return filtered.length > 0 ? filtered : allPoints.slice(-1);
+  }
+
+  function bindChartHover(plotArea, plotPoints, cfg) {
+    const hoverLine = plotArea.querySelector('.chart-hover-line');
+    const hoverDot = plotArea.querySelector('.chart-hover-dot');
+    const tooltip = plotArea.querySelector('.chart-tooltip');
+    const tooltipDate = plotArea.querySelector('.chart-tooltip-date');
+    const tooltipVal = plotArea.querySelector('.chart-tooltip-val');
+    if (!hoverLine || !hoverDot || !tooltip || plotPoints.length === 0) return;
+
+    const showAtClientX = (clientX) => {
+      const rect = plotArea.getBoundingClientRect();
+      if (!rect.width) return;
+      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const targetX = ratio * 1000;
+
+      let nearest = plotPoints[0];
+      let minDist = Math.abs(nearest.x - targetX);
+      for (let i = 1; i < plotPoints.length; i++) {
+        const dist = Math.abs(plotPoints[i].x - targetX);
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = plotPoints[i];
+        }
+      }
+
+      const leftPct = nearest.x / 10;
+      const topPct = nearest.y / 3;
+
+      hoverLine.style.display = 'block';
+      hoverLine.style.left = `${leftPct}%`;
+
+      hoverDot.style.display = 'block';
+      hoverDot.style.left = `${leftPct}%`;
+      hoverDot.style.top = `${topPct}%`;
+      hoverDot.style.background = cfg.color;
+      hoverDot.style.boxShadow = `0 0 10px ${cfg.color}`;
+
+      tooltipDate.textContent = formatChartTooltipDate(nearest.date);
+      tooltipVal.textContent = nearest.val >= 1000
+        ? `${formatChartFullVal(nearest.val)} (${nearest.val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M)`
+        : formatChartFullVal(nearest.val);
+
+      tooltip.style.display = 'block';
+      const clampedX = Math.max(14, Math.min(86, leftPct));
+      tooltip.style.left = `${clampedX}%`;
+      if (nearest.y < 115) {
+        tooltip.style.top = `calc(${topPct}% + 14px)`;
+        tooltip.style.transform = 'translate(-50%, 0)';
+      } else {
+        tooltip.style.top = `${topPct}%`;
+        tooltip.style.transform = 'translate(-50%, -118%)';
+      }
+    };
+
+    const hideHover = () => {
+      hoverLine.style.display = 'none';
+      hoverDot.style.display = 'none';
+      tooltip.style.display = 'none';
+    };
+
+    plotArea.addEventListener('mousemove', (e) => showAtClientX(e.clientX));
+    plotArea.addEventListener('mouseleave', hideHover);
+    plotArea.addEventListener('touchstart', (e) => {
+      if (e.touches[0]) showAtClientX(e.touches[0].clientX);
+    }, { passive: true });
+    plotArea.addEventListener('touchmove', (e) => {
+      if (e.touches[0]) showAtClientX(e.touches[0].clientX);
+    }, { passive: true });
+    plotArea.addEventListener('touchend', hideHover);
+  }
+
+  function renderSupplyChart(poolKey, force = false) {
+    const cfg = POOL_CHART_CONFIG[poolKey];
+    const state = chartStates[poolKey];
+    const card = document.getElementById(cfg.cardId);
+    if (!card) return;
+
+    const series = getChartSeries(poolKey);
+    const tf = state.timeframe;
+    const renderKey = `${tf}|${series.map(p => `${p.date}:${p.val.toFixed(2)}`).join(',')}`;
+    if (!force && state.lastRenderKey === renderKey) return;
+    state.lastRenderKey = renderKey;
+
+    if (series.length === 0) {
+      card.innerHTML = '<div class="chart-empty">No history recorded yet</div>';
+      return;
+    }
+
+    const values = series.map(p => p.val);
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+    const avgVal = values.reduce((acc, v) => acc + v, 0) / values.length;
+
+    let yMin;
+    let yMax;
+    if (maxVal === minVal) {
+      const pad = Math.max(maxVal * 0.04, 1);
+      yMin = Math.max(0, minVal - pad);
+      yMax = maxVal + pad;
+    } else {
+      const effectiveSpan = Math.max(maxVal - minVal, maxVal * 0.015);
+      const mid = (minVal + maxVal) / 2;
+      yMin = Math.max(0, mid - effectiveSpan * 0.62);
+      yMax = mid + effectiveSpan * 0.62;
+    }
+    const ySpan = Math.max(0.01, yMax - yMin);
+    const yMid = (yMin + yMax) / 2;
+
+    const PLOT_TOP = 18;
+    const PLOT_BOTTOM = 282;
+    const valToY = (v) => PLOT_BOTTOM - ((v - yMin) / ySpan) * (PLOT_BOTTOM - PLOT_TOP);
+
+    const tMin = series[0].ms;
+    const tMax = series[series.length - 1].ms;
+    const plotPoints = series.map(p => ({
+      ...p,
+      x: tMax > tMin ? ((p.ms - tMin) / (tMax - tMin)) * 1000 : 500,
+      y: valToY(p.val)
+    }));
+
+    const avgY = valToY(avgVal);
+    const avgTopPct = Math.max(10, Math.min(88, avgY / 3));
+
+    const firstVal = series[0].val;
+    const lastVal = series[series.length - 1].val;
+    const diff = lastVal - firstVal;
+    const pct = firstVal > 0 ? (diff / firstVal) * 100 : 0;
+    const deltaClass = diff > 0.01 ? 'pos' : diff < -0.01 ? 'neg' : '';
+    const deltaHTML = series.length >= 2
+      ? `<span class="chart-delta ${deltaClass}">${formatChartDelta(diff, pct)}</span>`
+      : '';
+
+    const linePath = plotPoints.length >= 2 ? buildMonotonePath(plotPoints) : '';
+    const areaPath = plotPoints.length >= 2
+      ? `${linePath} L ${plotPoints[plotPoints.length - 1].x.toFixed(1)} 300 L ${plotPoints[0].x.toFixed(1)} 300 Z`
+      : '';
+
+    const tfButtonsHTML = ['1w', '1m', '6m', '1y']
+      .map(key => `<button type="button" class="chart-tf-btn${tf === key ? ' active' : ''}" data-tf="${key}">${key}</button>`)
+      .join('');
+
+    let xLabelsHTML = '';
+    if (tMax === tMin) {
+      xLabelsHTML = `<span>${formatChartAxisDate(tMin, tf)}</span>`;
+    } else {
+      const steps = 3;
+      const seen = new Set();
+      const labels = [];
+      for (let i = 0; i <= steps; i++) {
+        const ms = tMin + ((tMax - tMin) * i) / steps;
+        const text = formatChartAxisDate(ms, tf);
+        if (!seen.has(text) || i === steps) {
+          seen.add(text);
+          labels.push(`<span>${text}</span>`);
+        }
+      }
+      xLabelsHTML = labels.join('');
+    }
+
+    const latestPt = plotPoints[plotPoints.length - 1];
+
+    card.innerHTML = `
+      <div class="chart-header">
+        <div class="chart-title-wrap">
+          <span class="chart-dot ${cfg.dotClass}"></span>
+          <span class="chart-title">${cfg.title}</span>
+          ${deltaHTML}
+        </div>
+        <div class="chart-timeframes">${tfButtonsHTML}</div>
+      </div>
+      <div class="chart-body">
+        <div class="chart-y-axis">
+          <span>${formatChartAxisVal(yMax, ySpan)}</span>
+          <span>${formatChartAxisVal(yMid, ySpan)}</span>
+          <span>${formatChartAxisVal(yMin, ySpan)}</span>
+        </div>
+        <div class="chart-plot-area">
+          <svg class="chart-svg" viewBox="0 0 1000 300" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="${cfg.gradId}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="${cfg.color}" stop-opacity="0.28"></stop>
+                <stop offset="100%" stop-color="${cfg.color}" stop-opacity="0.01"></stop>
+              </linearGradient>
+            </defs>
+            <line x1="0" y1="${PLOT_TOP}" x2="1000" y2="${PLOT_TOP}" stroke="rgba(255,255,255,0.05)" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+            <line x1="0" y1="150" x2="1000" y2="150" stroke="rgba(255,255,255,0.05)" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+            <line x1="0" y1="${PLOT_BOTTOM}" x2="1000" y2="${PLOT_BOTTOM}" stroke="rgba(255,255,255,0.06)" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+            <line x1="0" y1="${avgY.toFixed(1)}" x2="1000" y2="${avgY.toFixed(1)}" stroke="rgba(255,255,255,0.28)" stroke-width="1.2" stroke-dasharray="5 5" vector-effect="non-scaling-stroke"></line>
+            ${areaPath ? `<path d="${areaPath}" fill="url(#${cfg.gradId})"></path>` : ''}
+            ${linePath ? `<path d="${linePath}" fill="none" stroke="${cfg.color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>` : ''}
+          </svg>
+          <div class="chart-avg-pill" style="top: ${avgTopPct.toFixed(1)}%">Avg ${formatChartFullVal(avgVal)}</div>
+          <div class="chart-live-dot" style="left: ${(latestPt.x / 10).toFixed(2)}%; top: ${(latestPt.y / 3).toFixed(2)}%; background: ${cfg.color}; box-shadow: 0 0 8px ${cfg.color};"></div>
+          <div class="chart-hover-line"></div>
+          <div class="chart-hover-dot"></div>
+          <div class="chart-tooltip">
+            <div class="chart-tooltip-date"></div>
+            <div class="chart-tooltip-val"></div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-x-axis">${xLabelsHTML}</div>
+    `;
+
+    card.querySelectorAll('.chart-tf-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const nextTf = btn.dataset.tf;
+        if (nextTf && chartStates[poolKey].timeframe !== nextTf) {
+          chartStates[poolKey].timeframe = nextTf;
+          renderSupplyChart(poolKey, true);
+        }
+      });
+    });
+
+    const plotArea = card.querySelector('.chart-plot-area');
+    if (plotArea) {
+      bindChartHover(plotArea, plotPoints, cfg);
+    }
+  }
+
+  async function loadAllPoolHistories() {
+    await Promise.all(
+      Object.entries(POOL_CHART_CONFIG).map(async ([poolKey, cfg]) => {
+        try {
+          const res = await fetch(`./${cfg.historyFile}?t=${Date.now()}`);
+          if (res.ok) {
+            const rows = await res.json();
+            if (Array.isArray(rows)) {
+              chartStates[poolKey].history = rows;
+            }
+          }
+        } catch (err) {
+          console.warn(`Failed to load ${cfg.historyFile}:`, err);
+        }
+        renderSupplyChart(poolKey);
+      })
+    );
+  }
+
   // Update Plasma, Ethereum, and Morpho UI metrics in parallel
   async function refreshAllMetrics() {
     const lblStatus = document.getElementById('lbl-status');
@@ -725,6 +1136,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (document.getElementById('val-plasma-total-borrow')) {
         document.getElementById('val-plasma-total-borrow').textContent = formatM(data.totalBorrow);
       }
+      chartStates.plasma.liveM = data.totalSupply / 1e6;
+      renderSupplyChart('plasma');
     } catch (err) {
       console.error("Aave Plasma error:", err);
       plasmaError = err.message;
@@ -758,6 +1171,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (document.getElementById('val-total-borrow')) {
         document.getElementById('val-total-borrow').textContent = formatM(data.totalBorrow);
       }
+      chartStates.ethereum.liveM = data.totalSupply / 1e6;
+      renderSupplyChart('ethereum');
     } catch (err) {
       console.error("Aave Ethereum error:", err);
       ethError = err.message;
@@ -773,6 +1188,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('morpho-total-assets').textContent = formatM(data.totalAssets);
       }
 
+      chartStates.morpho.liveM = data.totalAssets / 1e6;
+      renderSupplyChart('morpho');
       renderMorphoAllocations(data.allocations);
     } catch (err) {
       console.error("Morpho error:", err);
@@ -945,10 +1362,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initial load
+  loadAllPoolHistories();
   loadConfig().finally(() => {
     refreshAllMetrics();
   });
 
-  // Refresh every 10 seconds
+  // Refresh live metrics every 10 seconds, history files every 5 minutes
   setInterval(refreshAllMetrics, 10000);
+  setInterval(loadAllPoolHistories, 300000);
 });

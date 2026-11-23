@@ -41,6 +41,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // State
   let settings = { ...DEFAULTS };
   let lastUpdateTime = null;
+  let isMorphoAllocExpanded = false;
+  let latestMorphoAllocations = null;
 
   // Protocol detection warning banner
   if (window.location.protocol === 'file:') {
@@ -505,6 +507,184 @@ document.addEventListener('DOMContentLoaded', () => {
     return formatM(val);
   }
 
+  const MORPHO_CHAIN_NAMES = {
+    1: 'ethereum',
+    8453: 'base',
+    137: 'polygon'
+  };
+
+  function getExpandHintLabel(remainingCount, hasHiddenBreach) {
+    if (isMorphoAllocExpanded) {
+      return 'Show less';
+    }
+    return `${hasHiddenBreach ? '⚠️ ' : ''}+${remainingCount} more`;
+  }
+
+  function updateMorphoExpandUI(remainingCount, hasHiddenBreach) {
+    const largestRow = document.querySelector('#morpho-allocations-list .allocation-row.largest');
+    const extraContainer = document.querySelector('#morpho-allocations-list .allocations-extra');
+    const hintText = document.querySelector('#morpho-allocations-list .alloc-expand-text');
+    const hintBadge = document.querySelector('#morpho-allocations-list .alloc-expand-hint');
+
+    if (largestRow) {
+      largestRow.setAttribute('aria-expanded', String(isMorphoAllocExpanded));
+    }
+    if (extraContainer) {
+      extraContainer.classList.toggle('expanded', isMorphoAllocExpanded);
+    }
+    if (hintText) {
+      hintText.textContent = getExpandHintLabel(remainingCount, hasHiddenBreach);
+    }
+    if (hintBadge) {
+      hintBadge.classList.toggle('has-warning', !isMorphoAllocExpanded && hasHiddenBreach);
+    }
+  }
+
+  function toggleMorphoAllocations() {
+    if (!latestMorphoAllocations || latestMorphoAllocations.length <= 1) return;
+    isMorphoAllocExpanded = !isMorphoAllocExpanded;
+    const remainingCount = latestMorphoAllocations.length - 1;
+    const hasHiddenBreach = latestMorphoAllocations
+      .slice(1)
+      .some(a => a.collateralSymbol !== 'USDC (Idle)' && a.marketUtilization >= settings.morphoUtilizationThreshold);
+    updateMorphoExpandUI(remainingCount, hasHiddenBreach);
+  }
+
+  function createAllocationRow(alloc, chainName, options = {}) {
+    const { isLargest = false, remainingCount = 0, hasHiddenBreach = false } = options;
+    const isBreached = alloc.collateralSymbol !== 'USDC (Idle)' && alloc.marketUtilization >= settings.morphoUtilizationThreshold;
+
+    const item = document.createElement('div');
+    let rowClass = 'allocation-row';
+    if (isBreached) rowClass += ' error';
+    if (isLargest) rowClass += ' largest';
+    if (isLargest && remainingCount > 0) {
+      rowClass += ' expandable';
+      item.setAttribute('role', 'button');
+      item.setAttribute('tabindex', '0');
+      item.setAttribute('aria-expanded', String(isMorphoAllocExpanded));
+      item.title = 'Click to show/hide other allocations';
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.alloc-link-btn')) return;
+        toggleMorphoAllocations();
+      });
+      item.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleMorphoAllocations();
+        }
+      });
+    }
+    item.className = rowClass;
+
+    const label = document.createElement('div');
+    label.className = 'allocation-label';
+    const symbolClass = alloc.collateralSymbol.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    const leftGroup = document.createElement('div');
+    leftGroup.className = 'alloc-left';
+
+    const badge = document.createElement('span');
+    badge.className = `token-badge token-${symbolClass}`;
+    badge.textContent = alloc.collateralSymbol;
+    leftGroup.appendChild(badge);
+
+    if (alloc.marketId) {
+      const link = document.createElement('a');
+      link.href = `https://app.morpho.org/${chainName}/market/${alloc.marketId}`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.className = 'alloc-link-btn';
+      link.title = `Open ${alloc.collateralSymbol} Market on Morpho`;
+      link.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
+      leftGroup.appendChild(link);
+    }
+
+    const sizeSpan = document.createElement('span');
+    sizeSpan.className = 'alloc-size';
+    sizeSpan.textContent = formatM(alloc.supplyAssets);
+
+    label.appendChild(leftGroup);
+    label.appendChild(sizeSpan);
+
+    const footer = document.createElement('div');
+    footer.className = 'allocation-footer';
+
+    const val = document.createElement('span');
+    val.className = 'allocation-util';
+    if (alloc.collateralSymbol === 'USDC (Idle)') {
+      val.textContent = 'Idle';
+      val.style.color = 'var(--text-muted)';
+    } else {
+      val.textContent = `${alloc.marketUtilization.toFixed(1)}%`;
+    }
+    footer.appendChild(val);
+
+    if (isLargest && remainingCount > 0) {
+      const hint = document.createElement('span');
+      hint.className = `alloc-expand-hint${!isMorphoAllocExpanded && hasHiddenBreach ? ' has-warning' : ''}`;
+      hint.innerHTML = `
+        <span class="alloc-expand-text">${getExpandHintLabel(remainingCount, hasHiddenBreach)}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      `;
+      footer.appendChild(hint);
+    }
+
+    item.appendChild(label);
+    item.appendChild(footer);
+    return item;
+  }
+
+  function renderMorphoAllocations(allocations) {
+    const listContainer = document.getElementById('morpho-allocations-list');
+    const headerLabel = document.getElementById('morpho-alloc-header');
+    if (!listContainer) return;
+
+    listContainer.innerHTML = '';
+
+    if (!allocations || allocations.length === 0) {
+      latestMorphoAllocations = [];
+      if (headerLabel) headerLabel.classList.remove('alloc-header-clickable');
+      listContainer.innerHTML = '<div class="alloc-empty">No active allocations</div>';
+      return;
+    }
+
+    const sorted = [...allocations].sort((a, b) => b.supplyAssets - a.supplyAssets);
+    latestMorphoAllocations = sorted;
+
+    const chainName = MORPHO_CHAIN_NAMES[parseInt(settings.morphoChainId)] || 'base';
+    const remaining = sorted.slice(1);
+    const hasHiddenBreach = remaining.some(
+      a => a.collateralSymbol !== 'USDC (Idle)' && a.marketUtilization >= settings.morphoUtilizationThreshold
+    );
+
+    if (headerLabel) {
+      headerLabel.classList.toggle('alloc-header-clickable', remaining.length > 0);
+    }
+
+    // Show the single largest underlying allocation by default
+    listContainer.appendChild(createAllocationRow(sorted[0], chainName, {
+      isLargest: true,
+      remainingCount: remaining.length,
+      hasHiddenBreach
+    }));
+
+    // Collapsible section for the remaining underlying allocations
+    if (remaining.length > 0) {
+      const extraWrapper = document.createElement('div');
+      extraWrapper.className = `allocations-extra${isMorphoAllocExpanded ? ' expanded' : ''}`;
+
+      const extraInner = document.createElement('div');
+      extraInner.className = 'allocations-extra-inner';
+      remaining.forEach((alloc) => {
+        extraInner.appendChild(createAllocationRow(alloc, chainName));
+      });
+
+      extraWrapper.appendChild(extraInner);
+      listContainer.appendChild(extraWrapper);
+    }
+  }
+
   // Update Plasma, Ethereum, and Morpho UI metrics in parallel
   async function refreshAllMetrics() {
     const lblStatus = document.getElementById('lbl-status');
@@ -592,70 +772,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (document.getElementById('morpho-total-assets')) {
         document.getElementById('morpho-total-assets').textContent = formatM(data.totalAssets);
       }
-      
-      const listContainer = document.getElementById('morpho-allocations-list');
-      if (listContainer) {
-        listContainer.innerHTML = '';
-        
-        if (data.allocations.length === 0) {
-          listContainer.innerHTML = '<div class="alloc-empty">No active allocations</div>';
-        } else {
-          const CHAIN_NAMES = {
-            1: 'ethereum',
-            8453: 'base',
-            137: 'polygon'
-          };
-          const chainName = CHAIN_NAMES[parseInt(settings.morphoChainId)] || 'base';
 
-          // Sort allocations by supplyAssets descending
-          data.allocations.sort((a, b) => b.supplyAssets - a.supplyAssets);
-
-          data.allocations.forEach((alloc, index) => {
-            const isBreached = alloc.collateralSymbol !== 'USDC (Idle)' && alloc.marketUtilization >= settings.morphoUtilizationThreshold;
-            
-            const item = document.createElement('div');
-            let rowClass = 'allocation-row';
-            if (isBreached) rowClass += ' error';
-            if (index === 0) rowClass += ' largest';
-            item.className = rowClass;
-            
-            // Display Name and Allocation size
-            const label = document.createElement('div');
-            label.className = 'allocation-label';
-            const symbolClass = alloc.collateralSymbol.toLowerCase().replace(/[^a-z0-9]/g, '');
-            
-            let linkHTML = '';
-            if (alloc.marketId) {
-              const marketUrl = `https://app.morpho.org/${chainName}/market/${alloc.marketId}`;
-              linkHTML = `
-                <a href="${marketUrl}" target="_blank" class="alloc-link-btn" title="Open ${alloc.collateralSymbol} Market on Morpho">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                </a>
-              `;
-            }
-
-            label.innerHTML = `
-              <span class="token-badge token-${symbolClass}">${alloc.collateralSymbol}</span>
-              ${linkHTML}
-              <span class="alloc-size">${formatM(alloc.supplyAssets)}</span>
-            `;
-            
-            // Utilization Value
-            const val = document.createElement('span');
-            val.className = 'allocation-util';
-            if (alloc.collateralSymbol === 'USDC (Idle)') {
-              val.textContent = 'Idle';
-              val.style.color = 'var(--text-muted)';
-            } else {
-              val.textContent = `${alloc.marketUtilization.toFixed(1)}%`;
-            }
-
-            item.appendChild(label);
-            item.appendChild(val);
-            listContainer.appendChild(item);
-          });
-        }
-      }
+      renderMorphoAllocations(data.allocations);
     } catch (err) {
       console.error("Morpho error:", err);
       morphoError = err.message;
@@ -819,6 +937,11 @@ document.addEventListener('DOMContentLoaded', () => {
         testMorphoBtn.innerHTML = originalText;
       }
     });
+  }
+
+  const morphoAllocHeader = document.getElementById('morpho-alloc-header');
+  if (morphoAllocHeader) {
+    morphoAllocHeader.addEventListener('click', toggleMorphoAllocations);
   }
 
   // Initial load

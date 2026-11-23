@@ -297,21 +297,19 @@ async function sendTelegramAlert(data, primaryAlloc, isBreached) {
     saveHistory(history);
   }
 
-  const prefix = isBreached 
-    ? "*[UTILIZATION ALERT]* Morpho Base Vault Alert" 
-    : "*[DAILY STATUS]* Morpho Base Vault Status";
+  const prefix = isBreached
+    ? "*[UTILIZATION ALERT]*\nMorpho Base Vault Alert"
+    : "*[DAILY STATUS]*\nMorpho Base Vault Status";
 
-  let message = `${prefix}\n` + 
-                `Vault: *${data.name} (${data.symbol})*\n` +
-                `Total Vault Assets: *${assetsStr}*\n` +
-                `Vault Net APY: *${vaultApyStr}*\n\n`;
+  const utilLine = primaryAlloc
+    ? `• *Utilization:* ${utilStr}${isBreached ? ' (BREACHED)' : ''}`
+    : `• *Utilization:* N/A`;
 
-  if (primaryAlloc) {
-    message += `*Largest Allocation Market:* ${primaryAlloc.collateralSymbol} / ${primaryAlloc.loanSymbol}\n` +
-               `• *Utilization:* ${utilStr}${isBreached ? ' (BREACHED)' : ''}`;
-  } else {
-    message += `No active allocation markets found.`;
-  }
+  const message = `${prefix}\n` +
+                  `*Vault:* ${data.name}\n\n` +
+                  `*Total Vault Assets:* ${assetsStr}\n` +
+                  `*Vault Net APY:* ${vaultApyStr}\n` +
+                  `${utilLine}`;
 
   console.log("Sending Telegram Message:\n", message);
 

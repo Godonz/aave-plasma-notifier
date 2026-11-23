@@ -1248,7 +1248,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const data = await fetchPlasmaData();
         const message = `*[TEST MESSAGE]*\n` +
-                        `Aave Plasma Pool Alert\n` +
+                        `Aave Plasma Pool Alert\n\n` +
                         `• *Total Supply:* ${formatM(data.totalSupply)}\n` +
                         `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
                         `• *Utilization:* ${data.utilization.toFixed(2)}%`;
@@ -1283,7 +1283,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const data = await fetchAaveData();
         const message = `*[TEST MESSAGE]*\n` +
-                        `Aave Ethereum Pool Alert\n` +
+                        `Aave Ethereum Pool Alert\n\n` +
                         `• *Total Supply:* ${formatM(data.totalSupply)}\n` +
                         `• *Net APY:* ${data.netApy.toFixed(2)}%\n` +
                         `• *Utilization:* ${data.utilization.toFixed(2)}%`;

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DeFi Yield Notifier Console</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20261123">
 </head>
 <body>
   <!-- Cosmic Twinkling Stars Overlay -->
@@ -332,7 +332,7 @@
             <!-- Row 2: Allocated Markets list -->
             <div class="metric-row full-width">
               <div class="metric-card allocations-card">
-                <span class="metric-label">Underlying Allocations & Utilization</span>
+                <span class="metric-label" id="morpho-alloc-header">Underlying Allocations & Utilization</span>
                 <div id="morpho-allocations-list" class="allocations-list">
                   <div class="alloc-loading">Loading allocations...</div>
                 </div>
@@ -350,6 +350,6 @@
     <span id="toast-message">Notification details</span>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20261123"></script>
 </body>
 </html>
